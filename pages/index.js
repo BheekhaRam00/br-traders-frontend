@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
+
+// 🔥 FIREBASE
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
-// ✅ ENV CONFIG (यहीं use होगा)
+// ==========================
+// 🔐 ENV CONFIG (Vercel se)
+// ==========================
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -19,123 +21,162 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
-
-// 🔥 INIT
+// INIT
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+// ==========================
+// 🚀 MAIN COMPONENT
+// ==========================
 export default function Home() {
   const API = "https://br-traders-backend.vercel.app/api";
 
-  const [history, setHistory] = useState([]);
-  const [active, setActive] = useState([]);
   const [user, setUser] = useState(null);
+  const [history, setHistory] = useState([]);
 
-  // =========================
-  // 🔁 FETCH
-  // =========================
-  const fetchHistory = async () => {
-    const res = await fetch(`${API}/history`);
-    const data = await res.json();
-    setHistory(data.trades || []);
-  };
-
-  const fetchActive = async () => {
-    const res = await fetch(`${API}/active`);
-    const data = await res.json();
-    setActive(data.trades || []);
-  };
-
-  // =========================
+  // ==========================
   // 🔐 AUTH
-  // =========================
+  // ==========================
   const loginGoogle = async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
-  };
-
-  const loginEmail = async (email, password) => {
-    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = async () => {
     await signOut(auth);
   };
 
-  // =========================
-  // 🔔 NOTIFICATION
-  // =========================
-  const initNotifications = async () => {
+  useEffect(() => {
+    onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+  }, []);
+
+  // ==========================
+  // 📊 FETCH HISTORY
+  // ==========================
+  const fetchHistory = async () => {
     try {
-      if (typeof window === "undefined") return;
+      const res = await fetch(`${API}/history`);
+      const data = await res.json();
 
-      const messaging = getMessaging(app);
+      console.log("DATA:", data);
 
-      await Notification.requestPermission();
-
-      const token = await getToken(messaging, {
-        vapidKey: vapidKey,
-      });
-
-      console.log("TOKEN:", token);
-
-      onMessage(messaging, (payload) => {
-        alert(payload.notification?.title || "New Trade");
-      });
+      if (data.success) {
+        setHistory(data.trades || []);
+      } else {
+        setHistory([]);
+      }
     } catch (e) {
-      console.log("Notification error:", e);
+      console.error("FETCH ERROR:", e);
     }
   };
 
-  // =========================
-  // 🚀 INIT
-  // =========================
   useEffect(() => {
-    onAuthStateChanged(auth, (u) => setUser(u));
-
     fetchHistory();
-    fetchActive();
 
-    const interval = setInterval(() => {
-      fetchHistory();
-      fetchActive();
-    }, 5000);
-
-    initNotifications();
-
+    const interval = setInterval(fetchHistory, 5000); // 🔄 auto refresh
     return () => clearInterval(interval);
   }, []);
 
-  // =========================
+  // ==========================
   // 🎨 UI
-  // =========================
+  // ==========================
   return (
-    <div style={{ padding: 20, background: "#07121f", minHeight: "100vh", color: "white" }}>
-      <h1 style={{ color: "#00ffc3" }}>TRADE WITH</h1>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0b1220",
+        color: "white",
+        padding: 20,
+        fontFamily: "sans-serif",
+      }}
+    >
+      {/* HEADER */}
+      <h1 style={{ color: "#00f5c4", fontSize: 32 }}>TRADE WITH</h1>
 
+      {/* AUTH */}
       {!user ? (
-        <div>
-          <button onClick={loginGoogle}>Google Login</button>
-        </div>
+        <button
+          onClick={loginGoogle}
+          style={{
+            padding: "10px 20px",
+            marginTop: 20,
+            background: "#00f5c4",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          Google Login
+        </button>
       ) : (
         <>
-          <p>👤 {user.email}</p>
-          <button onClick={logout}>Logout</button>
+          <div style={{ marginTop: 10 }}>
+            👤 {user.email}
+            <br />
+            <button
+              onClick={logout}
+              style={{
+                marginTop: 10,
+                padding: "6px 12px",
+                background: "#ff4d4d",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              Logout
+            </button>
+          </div>
 
-          <h2>Active Trades</h2>
-          {active.map((t, i) => (
-            <div key={i}>{t.dir} @ {t.entry}</div>
-          ))}
+          {/* HISTORY */}
+          <h2 style={{ marginTop: 30 }}>📊 Trade History</h2>
 
-          <h2>History</h2>
-          {history.map((t, i) => (
-            <div key={i}>
-              {t.dir} | {t.entry} → {t.exitPrice} ({t.exitType})
-            </div>
-          ))}
+          {history.length === 0 ? (
+            <p style={{ opacity: 0.6 }}>No trades</p>
+          ) : (
+            history.map((t, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "#111827",
+                  padding: 15,
+                  marginTop: 12,
+                  borderRadius: 12,
+                  border: "1px solid #1f2937",
+                }}
+              >
+                <p>
+                  <b style={{ color: "#00f5c4" }}>{t.dir}</b> | Entry:{" "}
+                  {t.entry}
+                </p>
+                <p>
+                  SL: {t.sl} | TP: {t.tp}
+                </p>
+                <p>
+                  Result:{" "}
+                  <span
+                    style={{
+                      color:
+                        t.exitType === "TP"
+                          ? "#00ff88"
+                          : t.exitType === "SL"
+                          ? "#ff4d4d"
+                          : "#ccc",
+                    }}
+                  >
+                    {t.exitType}
+                  </span>
+                </p>
+                <p style={{ fontSize: 12, opacity: 0.6 }}>
+                  {t.time}
+                </p>
+              </div>
+            ))
+          )}
         </>
       )}
     </div>
   );
-        }
+                }

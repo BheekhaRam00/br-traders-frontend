@@ -1,54 +1,59 @@
-const API = "https://s-backend.vercel.app/api"; // ← apna backend URL
+import { useEffect, useState } from "react";
 
-async function loadTrades() {
-  try {
-    const res = await fetch(`${API}/history`);
-    const data = await res.json();
+export default function Home() {
+  const [trades, setTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    console.log("API DATA:", data); // debug
+  useEffect(() => {
+    fetch("https://s-backend.vercel.app/api/history")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTrades(data.trades);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
-    const container = document.getElementById("trades");
+  return (
+    <div style={{ padding: 20, background: "#0b1220", minHeight: "100vh", color: "white" }}>
+      <h1 style={{ color: "#00ffc3" }}>TRADE WITH</h1>
 
-    if (!data.success || data.trades.length === 0) {
-      container.innerHTML = "<p>No trades</p>";
-      return;
-    }
+      <h2>Trade History</h2>
 
-    container.innerHTML = "";
+      {loading && <p>Loading...</p>}
 
-    data.trades.forEach(t => {
-      const pnl = t.exitPrice
-        ? (t.dir === "CALL"
-            ? t.exitPrice - t.entry
-            : t.entry - t.exitPrice)
-        : 0;
+      {!loading && trades.length === 0 && <p>No trades</p>}
 
-      const card = document.createElement("div");
-      card.style.border = "1px solid #333";
-      card.style.margin = "10px";
-      card.style.padding = "10px";
-      card.style.borderRadius = "10px";
-      card.style.background = "#111";
+      {trades.map((t, i) => {
+        const pnl = t.exitPrice
+          ? (t.dir === "CALL"
+              ? t.exitPrice - t.entry
+              : t.entry - t.exitPrice)
+          : 0;
 
-      card.innerHTML = `
-        <h3 style="color:${t.dir === "CALL" ? "lime" : "red"}">
-          ${t.dir}
-        </h3>
-        <p>Entry: ${t.entry}</p>
-        <p>SL: ${t.sl}</p>
-        <p>TP: ${t.tp}</p>
-        <p>RR: ${t.rr}</p>
-        <p>TF: ${t.tf}</p>
-        <p>Exit: ${t.exitPrice || "-"}</p>
-        <p>PnL: ${pnl}</p>
-      `;
-
-      container.appendChild(card);
-    });
-
-  } catch (e) {
-    console.error("Frontend error:", e);
-  }
-}
-
-loadTrades();
+        return (
+          <div key={i} style={{
+            border: "1px solid #333",
+            marginBottom: 10,
+            padding: 10,
+            borderRadius: 10,
+            background: "#111"
+          }}>
+            <h3 style={{ color: t.dir === "CALL" ? "lime" : "red" }}>
+              {t.dir}
+            </h3>
+            <p>Entry: {t.entry}</p>
+            <p>SL: {t.sl}</p>
+            <p>TP: {t.tp}</p>
+            <p>RR: {t.rr}</p>
+            <p>TF: {t.tf}</p>
+            <p>Exit: {t.exitPrice || "-"}</p>
+            <p>PnL: {pnl}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+      }

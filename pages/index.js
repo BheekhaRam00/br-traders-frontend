@@ -10,52 +10,41 @@ import {
 } from "firebase/auth";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
-// 🔥 FIREBASE CONFIG (अपना डालना)
+// ✅ ENV CONFIG (यहीं use होगा)
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// INIT
+const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
+
+// 🔥 INIT
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const messaging = typeof window !== "undefined" ? getMessaging(app) : null;
 
 export default function Home() {
   const API = "https://br-traders-backend.vercel.app/api";
 
   const [history, setHistory] = useState([]);
   const [active, setActive] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
   // =========================
-  // 🔁 FETCH FUNCTIONS
+  // 🔁 FETCH
   // =========================
   const fetchHistory = async () => {
-    try {
-      const res = await fetch(`${API}/history`);
-      const data = await res.json();
-      setHistory(data.trades || []);
-    } catch (e) {
-      console.error("History error:", e);
-    }
+    const res = await fetch(`${API}/history`);
+    const data = await res.json();
+    setHistory(data.trades || []);
   };
 
   const fetchActive = async () => {
-    try {
-      const res = await fetch(`${API}/active`);
-      const data = await res.json();
-      setActive(data.trades || []);
-    } catch (e) {
-      console.error("Active error:", e);
-    }
+    const res = await fetch(`${API}/active`);
+    const data = await res.json();
+    setActive(data.trades || []);
   };
 
   // =========================
@@ -66,7 +55,7 @@ export default function Home() {
     await signInWithPopup(auth, provider);
   };
 
-  const loginEmail = async () => {
+  const loginEmail = async (email, password) => {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -75,22 +64,24 @@ export default function Home() {
   };
 
   // =========================
-  // 🔔 NOTIFICATIONS
+  // 🔔 NOTIFICATION
   // =========================
   const initNotifications = async () => {
     try {
-      if (!messaging) return;
+      if (typeof window === "undefined") return;
+
+      const messaging = getMessaging(app);
 
       await Notification.requestPermission();
 
       const token = await getToken(messaging, {
-        vapidKey: "YOUR_VAPID_KEY",
+        vapidKey: vapidKey,
       });
 
-      console.log("🔔 TOKEN:", token);
+      console.log("TOKEN:", token);
 
       onMessage(messaging, (payload) => {
-        alert(payload.notification.title);
+        alert(payload.notification?.title || "New Trade");
       });
     } catch (e) {
       console.log("Notification error:", e);
@@ -120,127 +111,31 @@ export default function Home() {
   // 🎨 UI
   // =========================
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>BR TRADERS</h1>
+    <div style={{ padding: 20, background: "#07121f", minHeight: "100vh", color: "white" }}>
+      <h1 style={{ color: "#00ffc3" }}>TRADE WITH</h1>
 
       {!user ? (
-        <div style={styles.card}>
-          <h3>Login</h3>
-          <input
-            placeholder="Email"
-            style={styles.input}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            placeholder="Password"
-            type="password"
-            style={styles.input}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <button style={styles.btn} onClick={loginEmail}>
-            Login
-          </button>
-
-          <button style={styles.btnGoogle} onClick={loginGoogle}>
-            Google Login
-          </button>
+        <div>
+          <button onClick={loginGoogle}>Google Login</button>
         </div>
       ) : (
         <>
-          <div style={styles.topBar}>
-            <span>👤 {user.email}</span>
-            <button style={styles.logout} onClick={logout}>
-              Logout
-            </button>
-          </div>
+          <p>👤 {user.email}</p>
+          <button onClick={logout}>Logout</button>
 
-          {/* ACTIVE */}
-          <div style={styles.card}>
-            <h3>ACTIVE TRADES</h3>
-            {active.length === 0 ? (
-              <p>No active trades</p>
-            ) : (
-              active.map((t, i) => (
-                <div key={i} style={styles.trade}>
-                  {t.dir} @ {t.entry}
-                </div>
-              ))
-            )}
-          </div>
+          <h2>Active Trades</h2>
+          {active.map((t, i) => (
+            <div key={i}>{t.dir} @ {t.entry}</div>
+          ))}
 
-          {/* HISTORY */}
-          <div style={styles.card}>
-            <h3>TRADE HISTORY</h3>
-            {history.length === 0 ? (
-              <p>No trades</p>
-            ) : (
-              history.map((t, i) => (
-                <div key={i} style={styles.trade}>
-                  {t.dir} | Entry: {t.entry} → Exit: {t.exitPrice} ({t.exitType})
-                </div>
-              ))
-            )}
-          </div>
+          <h2>History</h2>
+          {history.map((t, i) => (
+            <div key={i}>
+              {t.dir} | {t.entry} → {t.exitPrice} ({t.exitType})
+            </div>
+          ))}
         </>
       )}
     </div>
   );
-}
-
-// =========================
-// 🎨 STYLES
-// =========================
-const styles = {
-  container: {
-    background: "#07121f",
-    minHeight: "100vh",
-    padding: "20px",
-    color: "white",
-  },
-  title: {
-    color: "#00ffc3",
-  },
-  card: {
-    background: "#0b1a2a",
-    padding: "15px",
-    marginTop: "15px",
-    borderRadius: "10px",
-  },
-  input: {
-    width: "100%",
-    marginBottom: "10px",
-    padding: "10px",
-    borderRadius: "5px",
-    border: "none",
-  },
-  btn: {
-    width: "100%",
-    padding: "10px",
-    background: "#00ffc3",
-    border: "none",
-    marginBottom: "10px",
-  },
-  btnGoogle: {
-    width: "100%",
-    padding: "10px",
-    background: "#4285F4",
-    border: "none",
-    color: "white",
-  },
-  logout: {
-    background: "red",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-  },
-  trade: {
-    marginTop: "5px",
-    padding: "5px",
-    borderBottom: "1px solid #222",
-  },
-  topBar: {
-    display: "flex",
-    justifyContent: "space-between",
-  },
-};
+        }

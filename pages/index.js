@@ -8,12 +8,18 @@ export default function Home() {
     fetch("https://s-backend.vercel.app/api/history")
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
+        console.log("DATA:", data); // 🔥 DEBUG
+
+        if (data.success && data.trades) {
           setTrades(data.trades);
         }
+
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -47,8 +53,6 @@ export default function Home() {
             <p>Entry: {t.entry}</p>
             <p>SL: {t.sl}</p>
             <p>TP: {t.tp}</p>
-            <p>RR: {t.rr}</p>
-            <p>TF: {t.tf}</p>
             <p>Exit: {t.exitPrice || "-"}</p>
             <p>PnL: {pnl}</p>
           </div>
@@ -56,4 +60,4 @@ export default function Home() {
       })}
     </div>
   );
-      }
+              }

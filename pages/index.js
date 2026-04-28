@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-
+ 
 export default function Home() {
   const [trades, setTrades] = useState([]);
   const prevCount = useRef(0);

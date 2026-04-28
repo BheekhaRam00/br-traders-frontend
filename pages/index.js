@@ -8,7 +8,9 @@ import {
   signOut,
 } from "firebase/auth";
 
-// 🔥 FIREBASE CONFIG (ENV से)
+// =========================
+// 🔥 FIREBASE CONFIG
+// =========================
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -32,14 +34,19 @@ export default function Home() {
   // =========================
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
+      console.log("👤 AUTH STATE:", u);
       setUser(u);
     });
     return () => unsub();
   }, []);
 
   const loginGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+    }
   };
 
   const logout = async () => {
@@ -47,32 +54,47 @@ export default function Home() {
   };
 
   // =========================
-  // 📡 FETCH HISTORY (FIXED)
+  // 📡 FETCH HISTORY (SUPER FIXED)
   // =========================
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API}/history`, {
-        cache: "no-store",
-      });
+      console.log("🚀 FETCH START");
+
+      const res = await fetch(
+        `${API}/history?ts=${Date.now()}`, // 🔥 cache break
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("🌐 STATUS:", res.status);
 
       const data = await res.json();
 
-      console.log("API DATA:", data);
+      console.log("🔥 RAW API:", data);
 
-      if (data && data.trades) {
-        setHistory(data.trades);
-      } else {
-        setHistory([]);
-      }
+      // 🔥 HARD SAFE PARSE
+      const trades = Array.isArray(data?.trades)
+        ? data.trades
+        : [];
+
+      console.log("✅ PARSED TRADES:", trades);
+
+      setHistory(trades);
     } catch (err) {
-      console.error("FETCH ERROR:", err);
+      console.error("❌ FETCH ERROR:", err);
       setHistory([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔁 AUTO REFRESH (5 sec)
+  // =========================
+  // 🔁 AUTO REFRESH
+  // =========================
   useEffect(() => {
     fetchHistory();
 
@@ -84,18 +106,28 @@ export default function Home() {
   }, []);
 
   // =========================
-  // 🧠 FILTER LOGIC
+  // 🧠 FILTER LOGIC (SAFE)
   // =========================
-  const activeTrades = history.filter((t) => !t.exitType);
-
-  const todayExit = history.filter(
-    (t) =>
-      t.exitType &&
-      t.exitTime &&
-      new Date(t.exitTime).toDateString() === new Date().toDateString()
+  const activeTrades = history.filter(
+    (t) => !t.exitType
   );
 
+  const todayExit = history.filter((t) => {
+    if (!t.exitType || !t.exitTime) return false;
+    return (
+      new Date(t.exitTime).toDateString() ===
+      new Date().toDateString()
+    );
+  });
+
   const fullHistory = history.filter((t) => t.exitType);
+
+  console.log("📊 FINAL STATES:", {
+    total: history.length,
+    active: activeTrades.length,
+    today: todayExit.length,
+    history: fullHistory.length,
+  });
 
   // =========================
   // 🎨 UI
@@ -111,6 +143,7 @@ export default function Home() {
       ) : (
         <>
           <p style={styles.user}>👤 {user.email}</p>
+
           <button style={styles.logout} onClick={logout}>
             Logout
           </button>
@@ -121,11 +154,15 @@ export default function Home() {
           {activeTrades.length > 0 ? (
             activeTrades.map((t, i) => (
               <div key={i} style={styles.card}>
-                {t.dir} @ {t.entry}
+                <b>{t.dir}</b> @ {t.entry}
+                <br />
+                SL: {t.sl} | TP: {t.tp}
               </div>
             ))
           ) : (
-            <p>Loading / No Active</p>
+            <p style={styles.empty}>
+              {loading ? "Loading..." : "No Active Trades"}
+            </p>
           )}
 
           {/* ================= TODAY EXIT ================= */}
@@ -134,26 +171,36 @@ export default function Home() {
           {todayExit.length > 0 ? (
             todayExit.map((t, i) => (
               <div key={i} style={styles.card}>
-                {t.dir} → {t.exitType} @ {t.exitPrice}
+                <b>{t.dir}</b> → {t.exitType}
+                <br />
+                Exit: {t.exitPrice}
               </div>
             ))
           ) : (
-            <p>No exits today</p>
+            <p style={styles.empty}>No exits today</p>
           )}
 
           {/* ================= HISTORY ================= */}
           <h2 style={styles.section}>📊 History</h2>
 
           {loading ? (
-            <p>Loading...</p>
+            <p style={styles.empty}>Loading...</p>
           ) : fullHistory.length > 0 ? (
             fullHistory.map((t, i) => (
-              <div key={i} style={styles.card}>
-                {t.dir} | Entry: {t.entry} | Exit: {t.exitType}
-              </div>
+              <details key={i} style={styles.card}>
+                <summary>
+                  {t.dir} | {t.exitType}
+                </summary>
+                <div style={{ marginTop: 6 }}>
+                  Entry: {t.entry} <br />
+                  Exit Price: {t.exitPrice} <br />
+                  Time: {t.exitTime} <br />
+                  RR: {t.rr}
+                </div>
+              </details>
             ))
           ) : (
-            <p>No trades</p>
+            <p style={styles.empty}>No trades</p>
           )}
         </>
       )}
@@ -162,7 +209,7 @@ export default function Home() {
 }
 
 // =========================
-// 🎨 STYLES (MODERN DARK)
+// 🎨 STYLES
 // =========================
 const styles = {
   container: {
@@ -174,33 +221,41 @@ const styles = {
   },
   title: {
     color: "#00ffd0",
-    fontSize: "32px",
-    marginBottom: "10px",
+    fontSize: "34px",
+    marginBottom: "15px",
+    fontWeight: "bold",
   },
   user: {
     marginBottom: "10px",
+    opacity: 0.8,
   },
   btn: {
-    padding: "10px",
+    padding: "10px 15px",
     background: "#00ffd0",
     border: "none",
     cursor: "pointer",
+    borderRadius: "6px",
   },
   logout: {
-    padding: "10px",
-    background: "red",
+    padding: "10px 15px",
+    background: "#ff3b3b",
     color: "white",
     border: "none",
+    borderRadius: "6px",
     marginBottom: "20px",
   },
   section: {
-    marginTop: "20px",
+    marginTop: "25px",
     marginBottom: "10px",
+    fontSize: "20px",
   },
   card: {
     background: "#111827",
-    padding: "10px",
-    marginBottom: "8px",
-    borderRadius: "8px",
+    padding: "12px",
+    marginBottom: "10px",
+    borderRadius: "10px",
+  },
+  empty: {
+    opacity: 0.6,
   },
 };

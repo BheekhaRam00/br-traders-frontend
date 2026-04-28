@@ -5,11 +5,9 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
 
-  // 🔄 auto refresh
   useEffect(() => {
     load();
-
-    const i = setInterval(load, 5000);
+    const i = setInterval(load, 4000);
     return () => clearInterval(i);
   }, []);
 
@@ -22,44 +20,92 @@ export default function Home() {
   }
 
   return (
-    <div className="container">
-      <div className="title">TRADE WITH</div>
+    <div className="app">
+      
+      {/* HEADER */}
+      <div className="header">
+        <div className="logo">TRADE WITH</div>
+        <div className="live">● LIVE</div>
+      </div>
 
-      {/* ACTIVE */}
+      {/* ACTIVE TRADES */}
       <div className="card">
-        <h3>ACTIVE TRADES</h3>
+        <div className="cardHeader">
+          ACTIVE TRADES <span className="liveSmall">LIVE</span>
+        </div>
 
-        {active.length === 0 && <p>No active trades</p>}
+        {active.length === 0 && (
+          <div className="empty">Fetching live market data...</div>
+        )}
 
         {active.map((t, i) => (
           <div key={i} className="trade">
-            <div className={t.dir === "CALL" ? "buy" : "sell"}>
+            <div className={t.dir === "CALL" ? "call" : "put"}>
               {t.dir}
             </div>
-            <div>Entry: {t.entry}</div>
-            <div>SL: {t.sl}</div>
-            <div>TP: {t.tp}</div>
-            <div>TF: {t.tf}</div>
+
+            <div className="details">
+              <div>Entry: {t.entry}</div>
+              <div>SL: {t.sl}</div>
+              <div>TP: {t.tp}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* TODAY EXIT */}
+      <div className="card">
+        <div className="cardHeader">
+          TODAY'S EXITS <span className="tag">TODAY</span>
+        </div>
+
+        {history.length === 0 && (
+          <div className="empty">Loading...</div>
+        )}
+
+        {history.slice(0, 5).map((t, i) => (
+          <div key={i} className="trade">
+            <div className={t.dir === "CALL" ? "call" : "put"}>
+              {t.dir}
+            </div>
+            <div className="details">
+              <div>{t.exitType}</div>
+              <div>RR: {t.rr}</div>
+            </div>
           </div>
         ))}
       </div>
 
       {/* HISTORY */}
       <div className="card">
-        <h3>TRADE HISTORY</h3>
+        <div className="cardHeader">
+          TRADE HISTORY <span className="tag2">ARCHIVE</span>
+        </div>
 
-        {history.length === 0 && <p>No history</p>}
+        {history.length === 0 && (
+          <div className="empty">Loading...</div>
+        )}
 
         {history.map((t, i) => (
           <div key={i} className="trade">
-            <div className={t.dir === "CALL" ? "buy" : "sell"}>
+            <div className={t.dir === "CALL" ? "call" : "put"}>
               {t.dir}
             </div>
-            <div>{t.exitType}</div>
-            <div>RR: {t.rr}</div>
+            <div className="details">
+              <div>{t.exitType}</div>
+              <div>RR: {t.rr}</div>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* BOTTOM NAV */}
+      <div className="nav">
+        <div className="navItem active">📊 Signals</div>
+        <div className="navItem">📈 Markets</div>
+        <div className="navItem">🏆 Stats</div>
+        <div className="navItem">⚙️ Settings</div>
+      </div>
     </div>
   );
-}
+              }

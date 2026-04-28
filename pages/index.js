@@ -1,111 +1,63 @@
 import { useEffect, useState } from "react";
-import { getActiveTrades, getHistory } from "../lib/api";
 
 export default function Home() {
-  const [active, setActive] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [trades, setTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    load();
-    const i = setInterval(load, 4000);
-    return () => clearInterval(i);
-  }, []);
+  async function fetchTrades() {
+    try {
+      const res = await fetch(
+        "https://br-traders-backend.vercel.app/api/active"
+      );
+      const data = await res.json();
 
-  async function load() {
-    const a = await getActiveTrades();
-    const h = await getHistory();
+      console.log("API DATA:", data);
 
-    setActive(a || []);
-    setHistory(h || []);
+      setTrades(data);
+    } catch (e) {
+      console.error("Fetch error:", e);
+    } finally {
+      setLoading(false);
+    }
   }
 
+  useEffect(() => {
+    fetchTrades();
+
+    const interval = setInterval(fetchTrades, 3000); // 🔥 live update every 3s
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="app">
+    <div style={{ background: "#0b1220", minHeight: "100vh", color: "white", padding: 20 }}>
       
-      {/* HEADER */}
-      <div className="header">
-        <div className="logo">TRADE WITH</div>
-        <div className="live">● LIVE</div>
-      </div>
+      <h1 style={{ color: "#00ffcc" }}>TRADE WITH</h1>
 
-      {/* ACTIVE TRADES */}
-      <div className="card">
-        <div className="cardHeader">
-          ACTIVE TRADES <span className="liveSmall">LIVE</span>
-        </div>
+      <h2>Active Trades</h2>
 
-        {active.length === 0 && (
-          <div className="empty">Fetching live market data...</div>
-        )}
-
-        {active.map((t, i) => (
-          <div key={i} className="trade">
-            <div className={t.dir === "CALL" ? "call" : "put"}>
-              {t.dir}
-            </div>
-
-            <div className="details">
-              <div>Entry: {t.entry}</div>
-              <div>SL: {t.sl}</div>
-              <div>TP: {t.tp}</div>
-            </div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : trades.length === 0 ? (
+        <p>No trades</p>
+      ) : (
+        trades.map((t, i) => (
+          <div key={i} style={{
+            background: "#111827",
+            padding: 15,
+            borderRadius: 10,
+            marginBottom: 10,
+            border: "1px solid #1f2937"
+          }}>
+            <h3>{t.dir}</h3>
+            <p>Entry: {t.entry}</p>
+            <p>SL: {t.sl}</p>
+            <p>TP: {t.tp}</p>
+            <p>RR: {t.rr}</p>
+            <p>TF: {t.tf}</p>
           </div>
-        ))}
-      </div>
+        ))
+      )}
 
-      {/* TODAY EXIT */}
-      <div className="card">
-        <div className="cardHeader">
-          TODAY'S EXITS <span className="tag">TODAY</span>
-        </div>
-
-        {history.length === 0 && (
-          <div className="empty">Loading...</div>
-        )}
-
-        {history.slice(0, 5).map((t, i) => (
-          <div key={i} className="trade">
-            <div className={t.dir === "CALL" ? "call" : "put"}>
-              {t.dir}
-            </div>
-            <div className="details">
-              <div>{t.exitType}</div>
-              <div>RR: {t.rr}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* HISTORY */}
-      <div className="card">
-        <div className="cardHeader">
-          TRADE HISTORY <span className="tag2">ARCHIVE</span>
-        </div>
-
-        {history.length === 0 && (
-          <div className="empty">Loading...</div>
-        )}
-
-        {history.map((t, i) => (
-          <div key={i} className="trade">
-            <div className={t.dir === "CALL" ? "call" : "put"}>
-              {t.dir}
-            </div>
-            <div className="details">
-              <div>{t.exitType}</div>
-              <div>RR: {t.rr}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* BOTTOM NAV */}
-      <div className="nav">
-        <div className="navItem active">📊 Signals</div>
-        <div className="navItem">📈 Markets</div>
-        <div className="navItem">🏆 Stats</div>
-        <div className="navItem">⚙️ Settings</div>
-      </div>
     </div>
   );
-              }
+}

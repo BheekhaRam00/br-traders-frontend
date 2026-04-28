@@ -1,44 +1,65 @@
 import { useEffect, useState } from "react";
-
-const BASE = "https://br-traders-backend.vercel.app/api";
+import { getActiveTrades, getHistory } from "../lib/api";
 
 export default function Home() {
-  const [trades, setTrades] = useState([]);
+  const [active, setActive] = useState([]);
+  const [history, setHistory] = useState([]);
 
+  // 🔄 auto refresh
   useEffect(() => {
     load();
-    const i = setInterval(load, 3000);
+
+    const i = setInterval(load, 5000);
     return () => clearInterval(i);
   }, []);
 
-  const load = async () => {
-    try {
-      const res = await fetch(`${BASE}/active`);
-      const data = await res.json();
-      setTrades(data || []);
-    } catch {}
-  };
+  async function load() {
+    const a = await getActiveTrades();
+    const h = await getHistory();
+
+    setActive(a || []);
+    setHistory(h || []);
+  }
 
   return (
-    <div style={{ padding: 16, background: "#0b1220", minHeight: "100vh", color: "white" }}>
-      
-      <h1 style={{ color: "#00ffaa" }}>TRADE WITH</h1>
+    <div className="container">
+      <div className="title">TRADE WITH</div>
 
-      <h3>ACTIVE TRADES</h3>
+      {/* ACTIVE */}
+      <div className="card">
+        <h3>ACTIVE TRADES</h3>
 
-      {trades.length === 0 ? (
-        <p>Fetching live market data...</p>
-      ) : (
-        trades.map((t, i) => (
-          <div key={i} style={{ margin: 10, padding: 10, background: "#111a2e" }}>
-            <p>{t.dir} | {t.tf}m</p>
-            <p>Entry: {t.entry}</p>
-            <p>SL: {t.sl}</p>
-            <p>TP: {t.tp}</p>
+        {active.length === 0 && <p>No active trades</p>}
+
+        {active.map((t, i) => (
+          <div key={i} className="trade">
+            <div className={t.dir === "CALL" ? "buy" : "sell"}>
+              {t.dir}
+            </div>
+            <div>Entry: {t.entry}</div>
+            <div>SL: {t.sl}</div>
+            <div>TP: {t.tp}</div>
+            <div>TF: {t.tf}</div>
           </div>
-        ))
-      )}
+        ))}
+      </div>
 
+      {/* HISTORY */}
+      <div className="card">
+        <h3>TRADE HISTORY</h3>
+
+        {history.length === 0 && <p>No history</p>}
+
+        {history.map((t, i) => (
+          <div key={i} className="trade">
+            <div className={t.dir === "CALL" ? "buy" : "sell"}>
+              {t.dir}
+            </div>
+            <div>{t.exitType}</div>
+            <div>RR: {t.rr}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

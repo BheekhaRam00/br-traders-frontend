@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-
-// 🔥 FIREBASE
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -10,9 +8,7 @@ import {
   signOut,
 } from "firebase/auth";
 
-// ==========================
-// 🔐 ENV CONFIG
-// ==========================
+// 🔥 FIREBASE CONFIG (ENV से)
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -24,19 +20,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// ==========================
-// 🚀 MAIN
-// ==========================
 export default function Home() {
   const API = "https://br-traders-backend.vercel.app/api";
 
   const [user, setUser] = useState(null);
-  const [allTrades, setAllTrades] = useState([]);
-  const [expanded, setExpanded] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // ==========================
+  // =========================
   // 🔐 AUTH
-  // ==========================
+  // =========================
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsub();
+  }, []);
+
   const loginGoogle = async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
@@ -46,13 +46,9 @@ export default function Home() {
     await signOut(auth);
   };
 
-  useEffect(() => {
-    onAuthStateChanged(auth, (u) => setUser(u));
-  }, []);
-
-  // ==========================
-  // 📡 FETCH (FINAL FIXED)
-  // ==========================
+  // =========================
+  // 📡 FETCH HISTORY (FIXED)
+  // =========================
   const fetchHistory = async () => {
     try {
       const res = await fetch(`${API}/history`, {
@@ -61,143 +57,150 @@ export default function Home() {
 
       const data = await res.json();
 
-      console.log("API RESPONSE:", data);
+      console.log("API DATA:", data);
 
-      if (data?.trades) {
-        setAllTrades(data.trades);
+      if (data && data.trades) {
+        setHistory(data.trades);
       } else {
-        setAllTrades([]);
+        setHistory([]);
       }
-    } catch (e) {
-      console.error("FETCH ERROR:", e);
+    } catch (err) {
+      console.error("FETCH ERROR:", err);
+      setHistory([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🔁 AUTO REFRESH
+  // 🔁 AUTO REFRESH (5 sec)
   useEffect(() => {
     fetchHistory();
-    const interval = setInterval(fetchHistory, 5000);
+
+    const interval = setInterval(() => {
+      fetchHistory();
+    }, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
-  // ==========================
-  // 🧠 DATA LOGIC
-  // ==========================
-  const now = new Date();
+  // =========================
+  // 🧠 FILTER LOGIC
+  // =========================
+  const activeTrades = history.filter((t) => !t.exitType);
 
-  const activeTrades = allTrades.filter(
-    (t) => !t.exitType || t.exitType === ""
+  const todayExit = history.filter(
+    (t) =>
+      t.exitType &&
+      t.exitTime &&
+      new Date(t.exitTime).toDateString() === new Date().toDateString()
   );
 
-  const todayExits = allTrades.filter((t) => {
-    if (!t.exitTime) return false;
-    const d = new Date(t.exitTime);
-    return d.toDateString() === now.toDateString();
-  });
+  const fullHistory = history.filter((t) => t.exitType);
 
-  const history = allTrades;
-
-  // ==========================
-  // 🎨 UI HELPERS
-  // ==========================
-  const card = {
-    background: "#111827",
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 12,
-    border: "1px solid #1f2937",
-  };
-
-  const badge = (text, color) => ({
-    padding: "4px 10px",
-    borderRadius: 8,
-    background: color,
-    fontSize: 12,
-  });
-
-  // ==========================
+  // =========================
   // 🎨 UI
-  // ==========================
+  // =========================
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0b1220",
-        color: "white",
-        padding: 16,
-        fontFamily: "system-ui",
-      }}
-    >
-      <h1 style={{ color: "#00f5c4" }}>BR TRADERS</h1>
+    <div style={styles.container}>
+      <h1 style={styles.title}>BR TRADERS</h1>
 
       {!user ? (
-        <button onClick={loginGoogle}>Google Login</button>
+        <button style={styles.btn} onClick={loginGoogle}>
+          Google Login
+        </button>
       ) : (
         <>
-          <p>👤 {user.email}</p>
-          <button onClick={logout}>Logout</button>
+          <p style={styles.user}>👤 {user.email}</p>
+          <button style={styles.logout} onClick={logout}>
+            Logout
+          </button>
 
           {/* ================= ACTIVE ================= */}
-          <h2 style={{ marginTop: 20 }}>🟢 Active Trades</h2>
+          <h2 style={styles.section}>🟢 Active Trades</h2>
 
-          {activeTrades.length === 0 ? (
-            <p>Loading / No Active</p>
-          ) : (
+          {activeTrades.length > 0 ? (
             activeTrades.map((t, i) => (
-              <div key={i} style={card}>
-                <b style={{ color: t.dir === "CALL" ? "#00ff88" : "#ff4d4d" }}>
-                  {t.dir}
-                </b>{" "}
-                | Entry: {t.entry}
-                <br />
-                SL: {t.sl} | TP: {t.tp}
+              <div key={i} style={styles.card}>
+                {t.dir} @ {t.entry}
               </div>
             ))
+          ) : (
+            <p>Loading / No Active</p>
           )}
 
           {/* ================= TODAY EXIT ================= */}
-          <h2 style={{ marginTop: 25 }}>📅 Today’s Exits</h2>
+          <h2 style={styles.section}>📅 Today’s Exits</h2>
 
-          {todayExits.length === 0 ? (
-            <p>No exits today</p>
-          ) : (
-            todayExits.map((t, i) => (
-              <div key={i} style={card}>
-                <b>{t.dir}</b> | Exit: {t.exitType}
-                <br />
-                Entry: {t.entry} → Exit: {t.exitPrice}
+          {todayExit.length > 0 ? (
+            todayExit.map((t, i) => (
+              <div key={i} style={styles.card}>
+                {t.dir} → {t.exitType} @ {t.exitPrice}
               </div>
             ))
+          ) : (
+            <p>No exits today</p>
           )}
 
           {/* ================= HISTORY ================= */}
-          <h2 style={{ marginTop: 25 }}>📊 History</h2>
+          <h2 style={styles.section}>📊 History</h2>
 
-          {history.length === 0 ? (
-            <p>No trades</p>
-          ) : (
-            history.map((t, i) => (
-              <div
-                key={i}
-                style={{ ...card, cursor: "pointer" }}
-                onClick={() => setExpanded(expanded === i ? null : i)}
-              >
-                <b>{t.dir}</b> | {t.entry}
-
-                {expanded === i && (
-                  <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8 }}>
-                    <p>SL: {t.sl}</p>
-                    <p>TP: {t.tp}</p>
-                    <p>Exit: {t.exitType}</p>
-                    <p>Time: {t.time}</p>
-                    <p>Exit Time: {t.exitTime}</p>
-                  </div>
-                )}
+          {loading ? (
+            <p>Loading...</p>
+          ) : fullHistory.length > 0 ? (
+            fullHistory.map((t, i) => (
+              <div key={i} style={styles.card}>
+                {t.dir} | Entry: {t.entry} | Exit: {t.exitType}
               </div>
             ))
+          ) : (
+            <p>No trades</p>
           )}
         </>
       )}
     </div>
   );
-                                           }
+}
+
+// =========================
+// 🎨 STYLES (MODERN DARK)
+// =========================
+const styles = {
+  container: {
+    background: "#020617",
+    minHeight: "100vh",
+    padding: "20px",
+    color: "white",
+    fontFamily: "sans-serif",
+  },
+  title: {
+    color: "#00ffd0",
+    fontSize: "32px",
+    marginBottom: "10px",
+  },
+  user: {
+    marginBottom: "10px",
+  },
+  btn: {
+    padding: "10px",
+    background: "#00ffd0",
+    border: "none",
+    cursor: "pointer",
+  },
+  logout: {
+    padding: "10px",
+    background: "red",
+    color: "white",
+    border: "none",
+    marginBottom: "20px",
+  },
+  section: {
+    marginTop: "20px",
+    marginBottom: "10px",
+  },
+  card: {
+    background: "#111827",
+    padding: "10px",
+    marginBottom: "8px",
+    borderRadius: "8px",
+  },
+};

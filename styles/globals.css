@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #081420;
+  color: white;
+}
+
+.container {
+  padding: 20px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #00ffcc;
+}
+
+.card {
+  background: #0f1f33;
+  border-radius: 12px;
+  padding: 15px;
+  margin-top: 15px;
+}
+
+.trade {
+  border-bottom: 1px solid #1e2e44;
+  padding: 10px 0;
+}
+
+.buy {
+  color: #00ff88;
+}
+
+.sell {
+  color: #ff4d4d;
+}

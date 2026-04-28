@@ -1,36 +1,120 @@
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
   background: #081420;
+  font-family: sans-serif;
   color: white;
 }
 
-.container {
-  padding: 20px;
+.app {
+  padding: 15px;
+  padding-bottom: 80px;
 }
 
-.title {
-  font-size: 28px;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 26px;
   font-weight: bold;
   color: #00ffcc;
 }
 
+.live {
+  background: #0f2;
+  color: black;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
 .card {
   background: #0f1f33;
-  border-radius: 12px;
-  padding: 15px;
   margin-top: 15px;
+  border-radius: 16px;
+  padding: 15px;
+}
+
+.cardHeader {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.liveSmall {
+  background: #0f2;
+  color: black;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+}
+
+.tag {
+  background: #00aaff;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+}
+
+.tag2 {
+  background: #555;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
 }
 
 .trade {
-  border-bottom: 1px solid #1e2e44;
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  border-bottom: 1px solid #1a2a3f;
+  padding-bottom: 10px;
+}
+
+.call {
+  background: #00ff88;
+  color: black;
+  padding: 5px 10px;
+  border-radius: 10px;
+  margin-right: 10px;
+}
+
+.put {
+  background: #ff4d4d;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 10px;
+  margin-right: 10px;
+}
+
+.details {
+  font-size: 12px;
+}
+
+.empty {
+  text-align: center;
+  opacity: 0.6;
+  padding: 20px;
+}
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #0a1a2c;
+  display: flex;
+  justify-content: space-around;
   padding: 10px 0;
 }
 
-.buy {
-  color: #00ff88;
+.navItem {
+  font-size: 12px;
+  opacity: 0.6;
 }
 
-.sell {
-  color: #ff4d4d;
+.navItem.active {
+  color: #00ffcc;
+  opacity: 1;
 }

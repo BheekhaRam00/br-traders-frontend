@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  requestNotificationPermission,
+  onForegroundMessage,
+} from "../lib/firebase";
 
 export default function Home() {
   const [active, setActive] = useState([]);
@@ -8,13 +12,40 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   // =========================
+  // 🔔 SAVE TOKEN TO BACKEND
+  // =========================
+  const setupNotifications = async () => {
+    try {
+      const token = await requestNotificationPermission();
+
+      if (!token) return;
+
+      // 🔥 save token in backend
+      await axios.post("/api/main?type=saveToken", { token });
+
+      console.log("✅ Token saved");
+    } catch (err) {
+      console.log("❌ Token setup error:", err.message);
+    }
+  };
+
+  // =========================
+  // 🔔 FOREGROUND POPUP
+  // =========================
+  const setupForegroundListener = () => {
+    onForegroundMessage((payload) => {
+      alert(`${payload.notification.title}\n${payload.notification.body}`);
+    });
+  };
+
+  // =========================
   // 🔄 FETCH DATA
   // =========================
   const fetchData = async () => {
     try {
       const [activeRes, historyRes] = await Promise.all([
-        axios.get("/api/active"),
-        axios.get("/api/history"),
+        axios.get("/api/main?type=active"),
+        axios.get("/api/main?type=history"),
       ]);
 
       const activeData = activeRes?.data || [];
@@ -23,7 +54,6 @@ export default function Home() {
       setActive(activeData);
       setFullHistory(historyData);
 
-      // ✅ TODAY EXIT FILTER FIX
       const today = new Date().toDateString();
 
       const todayFiltered = historyData.filter((t) => {
@@ -40,14 +70,16 @@ export default function Home() {
   };
 
   // =========================
-  // 🔁 AUTO REFRESH (2 sec)
+  // 🔁 AUTO REFRESH
   // =========================
   useEffect(() => {
     fetchData();
+    setupNotifications();
+    setupForegroundListener();
 
     const interval = setInterval(() => {
       fetchData();
-    }, 2000); // 🔥 every 2 sec
+    }, 2000);
 
     return () => clearInterval(interval);
   }, []);

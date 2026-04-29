@@ -1,208 +1,116 @@
 import { useEffect, useState } from "react";
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
-
-// =========================
-// 🔥 FIREBASE CONFIG
-// =========================
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+import axios from "axios";
 
 export default function Home() {
-  const API = "https://br-traders-backend.vercel.app/api";
-
-  const [user, setUser] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [active, setActive] = useState([]);
+  const [fullHistory, setFullHistory] = useState([]);
+  const [todayExit, setTodayExit] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // =========================
-  // 🔐 AUTH
+  // 🔄 FETCH DATA
   // =========================
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      console.log("👤 AUTH STATE:", u);
-      setUser(u);
-    });
-    return () => unsub();
-  }, []);
-
-  const loginGoogle = async () => {
+  const fetchData = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const [activeRes, historyRes] = await Promise.all([
+        axios.get("/api/active"),
+        axios.get("/api/history"),
+      ]);
+
+      const activeData = activeRes?.data || [];
+      const historyData = historyRes?.data?.trades || [];
+
+      setActive(activeData);
+      setFullHistory(historyData);
+
+      // ✅ TODAY EXIT FILTER FIX
+      const today = new Date().toDateString();
+
+      const todayFiltered = historyData.filter((t) => {
+        if (!t.exitTime) return false;
+        return new Date(t.exitTime).toDateString() === today;
+      });
+
+      setTodayExit(todayFiltered);
     } catch (err) {
-      console.error("LOGIN ERROR:", err);
-    }
-  };
-
-  const logout = async () => {
-    await signOut(auth);
-  };
-
-  // =========================
-  // 📡 FETCH HISTORY (SUPER FIXED)
-  // =========================
-  const fetchHistory = async () => {
-    try {
-      console.log("🚀 FETCH START");
-
-      const res = await fetch(
-        `${API}/history?ts=${Date.now()}`, // 🔥 cache break
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("🌐 STATUS:", res.status);
-
-      const data = await res.json();
-
-      console.log("🔥 RAW API:", data);
-
-      // 🔥 HARD SAFE PARSE
-      const trades = Array.isArray(data?.trades)
-        ? data.trades
-        : [];
-
-      console.log("✅ PARSED TRADES:", trades);
-
-      setHistory(trades);
-    } catch (err) {
-      console.error("❌ FETCH ERROR:", err);
-      setHistory([]);
+      console.log("❌ FETCH ERROR:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
   // =========================
-  // 🔁 AUTO REFRESH
+  // 🔁 AUTO REFRESH (2 sec)
   // =========================
   useEffect(() => {
-    fetchHistory();
+    fetchData();
 
     const interval = setInterval(() => {
-      fetchHistory();
-    }, 5000);
+      fetchData();
+    }, 2000); // 🔥 every 2 sec
 
     return () => clearInterval(interval);
   }, []);
 
-  // =========================
-  // 🧠 FILTER LOGIC (SAFE)
-  // =========================
-  const activeTrades = history.filter(
-    (t) => !t.exitType
-  );
-
-  const todayExit = history.filter((t) => {
-    if (!t.exitType || !t.exitTime) return false;
-    return (
-      new Date(t.exitTime).toDateString() ===
-      new Date().toDateString()
-    );
-  });
-
-  const fullHistory = history.filter((t) => t.exitType);
-
-  console.log("📊 FINAL STATES:", {
-    total: history.length,
-    active: activeTrades.length,
-    today: todayExit.length,
-    history: fullHistory.length,
-  });
-
-  // =========================
-  // 🎨 UI
-  // =========================
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>BR TRADERS</h1>
+      <h1 style={styles.title}>🚀 BR Traders</h1>
 
-      {!user ? (
-        <button style={styles.btn} onClick={loginGoogle}>
-          Google Login
-        </button>
+      {/* ================= ACTIVE ================= */}
+      <h2 style={styles.section}>🟢 Active Trades</h2>
+
+      {active.length > 0 ? (
+        active.map((t, i) => (
+          <div key={i} style={styles.card}>
+            <b>{t.dir}</b>
+            <br />
+            Entry: {t.entry}
+            <br />
+            SL: {t.sl}
+            <br />
+            TP: {t.tp}
+          </div>
+        ))
       ) : (
-        <>
-          <p style={styles.user}>👤 {user.email}</p>
+        <p style={styles.empty}>No active trades</p>
+      )}
 
-          <button style={styles.logout} onClick={logout}>
-            Logout
-          </button>
+      {/* ================= TODAY EXIT ================= */}
+      <h2 style={styles.section}>📅 Today’s Exits</h2>
 
-          {/* ================= ACTIVE ================= */}
-          <h2 style={styles.section}>🟢 Active Trades</h2>
+      {todayExit.length > 0 ? (
+        todayExit.map((t, i) => (
+          <div key={i} style={styles.card}>
+            <b>{t.dir}</b> → {t.exitType}
+            <br />
+            Exit: {t.exitPrice}
+          </div>
+        ))
+      ) : (
+        <p style={styles.empty}>No exits today</p>
+      )}
 
-          {activeTrades.length > 0 ? (
-            activeTrades.map((t, i) => (
-              <div key={i} style={styles.card}>
-                <b>{t.dir}</b> @ {t.entry}
-                <br />
-                SL: {t.sl} | TP: {t.tp}
-              </div>
-            ))
-          ) : (
-            <p style={styles.empty}>
-              {loading ? "Loading..." : "No Active Trades"}
-            </p>
-          )}
+      {/* ================= HISTORY ================= */}
+      <h2 style={styles.section}>📊 History</h2>
 
-          {/* ================= TODAY EXIT ================= */}
-          <h2 style={styles.section}>📅 Today’s Exits</h2>
-
-          {todayExit.length > 0 ? (
-            todayExit.map((t, i) => (
-              <div key={i} style={styles.card}>
-                <b>{t.dir}</b> → {t.exitType}
-                <br />
-                Exit: {t.exitPrice}
-              </div>
-            ))
-          ) : (
-            <p style={styles.empty}>No exits today</p>
-          )}
-
-          {/* ================= HISTORY ================= */}
-          <h2 style={styles.section}>📊 History</h2>
-
-          {loading ? (
-            <p style={styles.empty}>Loading...</p>
-          ) : fullHistory.length > 0 ? (
-            fullHistory.map((t, i) => (
-              <details key={i} style={styles.card}>
-                <summary>
-                  {t.dir} | {t.exitType}
-                </summary>
-                <div style={{ marginTop: 6 }}>
-                  Entry: {t.entry} <br />
-                  Exit Price: {t.exitPrice} <br />
-                  Time: {t.exitTime} <br />
-                  RR: {t.rr}
-                </div>
-              </details>
-            ))
-          ) : (
-            <p style={styles.empty}>No trades</p>
-          )}
-        </>
+      {loading ? (
+        <p style={styles.empty}>Loading...</p>
+      ) : fullHistory.length > 0 ? (
+        fullHistory.map((t, i) => (
+          <details key={i} style={styles.card}>
+            <summary>
+              {t.dir} | {t.exitType || "OPEN"}
+            </summary>
+            <div style={{ marginTop: 6 }}>
+              Entry: {t.entry} <br />
+              Exit Price: {t.exitPrice || "-"} <br />
+              Time: {t.exitTime || "-"} <br />
+              RR: {t.rr || "-"}
+            </div>
+          </details>
+        ))
+      ) : (
+        <p style={styles.empty}>No trades</p>
       )}
     </div>
   );
@@ -224,25 +132,6 @@ const styles = {
     fontSize: "34px",
     marginBottom: "15px",
     fontWeight: "bold",
-  },
-  user: {
-    marginBottom: "10px",
-    opacity: 0.8,
-  },
-  btn: {
-    padding: "10px 15px",
-    background: "#00ffd0",
-    border: "none",
-    cursor: "pointer",
-    borderRadius: "6px",
-  },
-  logout: {
-    padding: "10px 15px",
-    background: "#ff3b3b",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    marginBottom: "20px",
   },
   section: {
     marginTop: "25px",

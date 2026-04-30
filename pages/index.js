@@ -31,14 +31,24 @@ export default function Home() {
   };
 
   // ================================
-  // 🔁 AUTO REFRESH
+  // 🔁 AUTO REFRESH (SAFE 2s)
   // ================================
   useEffect(() => {
-    loadData();
+    let running = false;
+
+    const safeLoad = async () => {
+      if (running) return; // ❌ prevent overlap
+      running = true;
+      await loadData();
+      running = false;
+    };
+
+    // 🔥 first load
+    safeLoad();
 
     const interval = setInterval(() => {
-      loadData();
-    }, 5000); // 🔥 every 5 sec
+      safeLoad();
+    }, 2000); // 🔥 2 sec refresh
 
     return () => clearInterval(interval);
   }, []);

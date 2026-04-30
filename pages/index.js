@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD (MODERN UI UPGRADE)
+// 🚀 DASHBOARD (STEP 2: INTELLIGENCE PANEL)
 // ==============================================
 
 import { useEffect, useState, useRef } from "react";
@@ -87,7 +87,7 @@ export default function Home() {
   );
 
   // ================================
-  // STATS
+  // 📊 BASIC STATS
   // ================================
   const total = history.length;
   const wins = history.filter((t) => t.exitType === "TP").length;
@@ -95,28 +95,103 @@ export default function Home() {
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
+  // 🔥 INTELLIGENCE
+  // ================================
+
+  // strategy stats
+  const strategyStats = {};
+  sortedHistory.forEach((t) => {
+    const key = t.strategy || "default";
+
+    if (!strategyStats[key]) {
+      strategyStats[key] = { trades: 0, wins: 0, pnl: 0 };
+    }
+
+    strategyStats[key].trades++;
+    if (t.exitType === "TP") strategyStats[key].wins++;
+    strategyStats[key].pnl += calcPnL(t);
+  });
+
+  // streak
+  let winStreak = 0;
+  let lossStreak = 0;
+
+  for (let t of sortedHistory) {
+    if (t.exitType === "TP") {
+      winStreak++;
+    } else break;
+  }
+
+  for (let t of sortedHistory) {
+    if (t.exitType === "SL") {
+      lossStreak++;
+    } else break;
+  }
+
+  // risk
+  const callCount = active.filter((t) => t.dir === "CALL").length;
+  const putCount = active.filter((t) => t.dir === "PUT").length;
+
+  // active intel
+  const avgProb =
+    active.reduce((s, t) => s + (t.probability || 0), 0) /
+    (active.length || 1);
+
+  const avgRR =
+    active.reduce((s, t) => s + (Number(t.rr) || 0), 0) /
+    (active.length || 1);
+
+  // ================================
   // UI
   // ================================
   return (
     <div className="container">
 
-      {/* 🔥 HEADER */}
+      {/* HEADER */}
       <div style={styles.header}>
         🚀 BR Traders
       </div>
 
-      {/* 📊 STATS */}
+      {/* STATS */}
       <div className="stats">
         <Stat label="Trades" value={total} />
         <Stat label="Win %" value={winrate} />
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
+      {/* ============================= */}
+      {/* 🔥 INTELLIGENCE PANEL */}
+      {/* ============================= */}
+      <div style={styles.intelCard}>
+        <h3 style={styles.center}>📊 Intelligence</h3>
+
+        <div style={styles.row}>
+          🔥 Win Streak: {winStreak} | ❌ Loss: {lossStreak}
+        </div>
+
+        <div style={styles.row}>
+          CALL: {callCount} | PUT: {putCount}
+        </div>
+
+        <div style={styles.row}>
+          Avg Prob: {avgProb.toFixed(1)}% | RR: {avgRR.toFixed(2)}
+        </div>
+
+        {/* Strategy */}
+        <div style={{ marginTop: "8px" }}>
+          {Object.entries(strategyStats).map(([k, v]) => (
+            <div key={k} style={styles.small}>
+              {k} → {v.trades} |{" "}
+              {((v.wins / v.trades) * 100 || 0).toFixed(1)}% | ₹
+              {v.pnl.toFixed(0)}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {loading && <p style={{ textAlign: "center" }}>Loading...</p>}
 
-      {/* ============================= */}
-      {/* 🟢 ACTIVE */}
-      {/* ============================= */}
+      {/* ACTIVE */}
       <Section title="🟢 Active Trades">
         {active.length === 0 ? (
           <Empty text="No active trades" />
@@ -127,9 +202,7 @@ export default function Home() {
         )}
       </Section>
 
-      {/* ============================= */}
-      {/* 🟡 TODAY */}
-      {/* ============================= */}
+      {/* TODAY */}
       <Section title="🟡 Today Closed">
         {todayTrades.length === 0 ? (
           <Empty text="No trades today" />
@@ -140,9 +213,7 @@ export default function Home() {
         )}
       </Section>
 
-      {/* ============================= */}
-      {/* 📜 HISTORY */}
-      {/* ============================= */}
+      {/* HISTORY */}
       <Section title="📜 History">
         {sortedHistory.length === 0 ? (
           <Empty text="No history" />
@@ -158,8 +229,6 @@ export default function Home() {
 }
 
 // ================================
-// 🔥 SECTION WRAPPER
-// ================================
 function Section({ title, children }) {
   return (
     <div style={styles.sectionCard}>
@@ -169,9 +238,6 @@ function Section({ title, children }) {
   );
 }
 
-// ================================
-// 📊 STAT
-// ================================
 function Stat({ label, value }) {
   return (
     <div className="stat-box">
@@ -181,22 +247,12 @@ function Stat({ label, value }) {
   );
 }
 
-// ================================
-// EMPTY STATE
-// ================================
 function Empty({ text }) {
-  return (
-    <div style={styles.empty}>
-      {text}
-    </div>
-  );
+  return <div style={styles.empty}>{text}</div>;
 }
 
 // ================================
-// 🎨 STYLES
-// ================================
 const styles = {
-
   header: {
     textAlign: "center",
     fontSize: "24px",
@@ -207,26 +263,44 @@ const styles = {
     color: "transparent",
   },
 
+  intelCard: {
+    marginTop: "15px",
+    padding: "12px",
+    borderRadius: "12px",
+    background: "#111827",
+  },
+
+  center: {
+    textAlign: "center",
+    marginBottom: "6px",
+  },
+
+  row: {
+    fontSize: "12px",
+    marginBottom: "4px",
+  },
+
+  small: {
+    fontSize: "11px",
+    color: "#9ca3af",
+  },
+
   sectionCard: {
     marginTop: "18px",
     padding: "12px",
     borderRadius: "12px",
     background: "#0f172a",
-    border: "1px solid #1f2937",
   },
 
   sectionTitle: {
     textAlign: "center",
     marginBottom: "10px",
-    fontSize: "15px",
-    fontWeight: "600",
     color: "#9ca3af",
   },
 
   empty: {
     textAlign: "center",
-    fontSize: "13px",
+    fontSize: "12px",
     color: "#6b7280",
-    padding: "10px",
   },
 };

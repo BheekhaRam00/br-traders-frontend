@@ -1,5 +1,5 @@
 // ==============================
-// 📦 TRADE CARD (FINAL PRO MAX)
+// 📦 TRADE CARD (PRO ULTRA FINAL)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
@@ -48,27 +48,15 @@ export default function TradeCard({ t = {} }) {
 
   const isUp = move >= 0;
   const moveColor = isUp ? "#00ff9f" : "#ff4d4d";
-  const arrow = isUp ? "⬆️" : "⬇️";
 
   // ================================
-  // 🎯 PROBABILITY SCALE
+  // 🎯 PROBABILITY
   // ================================
   const prob = Math.max(0, Math.min(100, t.probability ?? 50));
 
   let probColor = "#ff4d4d";
   if (prob > 70) probColor = "#00ff9f";
   else if (prob > 40) probColor = "#facc15";
-
-  // ================================
-  // 🏷️ BADGE
-  // ================================
-  let badge = styles.activeBadge;
-
-  if (isClosed) {
-    if (exitType === "TP") badge = styles.winBadge;
-    else if (exitType === "SL") badge = styles.lossBadge;
-    else badge = styles.closedBadge;
-  }
 
   // ================================
   // 🎯 DIR
@@ -80,7 +68,7 @@ export default function TradeCard({ t = {} }) {
   const isUpdated = t._updated;
 
   // ================================
-  // 🎨 CARD STYLE
+  // 🎨 CARD STYLE (ULTRA CLEAN)
   // ================================
   const cardStyle = {
     ...styles.card,
@@ -92,80 +80,72 @@ export default function TradeCard({ t = {} }) {
       (isCall ? styles.callGlow : isPut ? styles.putGlow : {})),
 
     ...(isUpdated &&
-      (isCall ? styles.callFlash : isPut ? styles.putFlash : {})),
+      (isCall ? styles.callPulse : isPut ? styles.putPulse : {})),
   };
 
+  // ================================
+  // 🏷️ BADGE
+  // ================================
+  const badgeStyle = isClosed
+    ? exitType === "TP"
+      ? styles.winBadge
+      : exitType === "SL"
+      ? styles.lossBadge
+      : styles.closedBadge
+    : styles.activeBadge;
+
+  const badgeText = isClosed
+    ? exitType === "TP"
+      ? "WIN"
+      : exitType === "SL"
+      ? "LOSS"
+      : "CLOSED"
+    : "ACTIVE";
+
+  // ================================
+  // UI
+  // ================================
   return (
     <div style={cardStyle}>
       {/* HEADER */}
       <div style={styles.header}>
         <span style={styles.symbol}>{symbol}</span>
-        <span style={badge}>
-          {isClosed
-            ? exitType === "TP"
-              ? "WIN"
-              : exitType === "SL"
-              ? "LOSS"
-              : "CLOSED"
-            : "ACTIVE"}
-        </span>
+        <span style={badgeStyle}>{badgeText}</span>
       </div>
 
       {/* STRATEGY */}
       <div style={styles.sub}>
-        {strategy} | {tf}
+        {strategy} • {tf}
       </div>
 
       {/* DIR */}
       <div style={styles.dir(dir)}>{dir}</div>
 
-      {/* CORE */}
-      <div style={styles.row}>
-        <span>Entry</span>
-        <span>{entry}</span>
+      {/* CORE GRID */}
+      <div style={styles.grid}>
+        <Row label="Entry" value={entry} />
+        <Row label="SL" value={sl} highlight={exitType === "SL"} />
+        <Row label="TP" value={tp} highlight={exitType === "TP"} />
+        <Row label="RR" value={rr} />
       </div>
 
-      <div
-        style={{
-          ...styles.row,
-          ...(exitType === "SL" && styles.hitSL),
-        }}
-      >
-        <span>SL</span>
-        <span>{sl}</span>
-      </div>
-
-      <div
-        style={{
-          ...styles.row,
-          ...(exitType === "TP" && styles.hitTP),
-        }}
-      >
-        <span>TP</span>
-        <span>{tp}</span>
-      </div>
-
-      <div style={styles.row}>
-        <span>RR</span>
-        <span>{rr}</span>
-      </div>
-
-      {/* MOVE */}
+      {/* LIVE MOVE */}
       {isActive && (
-        <div style={styles.row}>
+        <div style={styles.moveBox}>
           <span>Move</span>
           <span style={{ color: moveColor }}>
-            {arrow} {move.toFixed(2)} ({movePct.toFixed(2)}%)
+            {move.toFixed(2)} ({movePct.toFixed(2)}%)
           </span>
         </div>
       )}
 
       {/* PROBABILITY */}
       {isActive && (
-        <div style={styles.probBox}>
+        <div style={styles.probWrap}>
           <div style={{ ...styles.probText, color: probColor }}>
-            Prob: {prob}%
+            Probability {prob}%
           </div>
+
           <div style={styles.probBar}>
             <div
               style={{
@@ -180,15 +160,9 @@ export default function TradeCard({ t = {} }) {
 
       {/* ACTIVE */}
       {isActive && (
-        <>
-          <div style={styles.activeBox}>
-            🟢 Running
-          </div>
-
-          <div style={{ ...styles.pnl, color: moveColor }}>
-            ₹ {move.toFixed(2)}
-          </div>
-        </>
+        <div style={{ ...styles.pnl, color: moveColor }}>
+          ₹ {move.toFixed(2)}
+        </div>
       )}
 
       {/* CLOSED */}
@@ -196,17 +170,11 @@ export default function TradeCard({ t = {} }) {
         <>
           <div style={styles.divider} />
 
-          <div style={styles.row}>
-            <span>Exit</span>
-            <span>{exit}</span>
-          </div>
-
-          <div style={styles.row}>
-            <span>Time</span>
-            <span>
-              {exitTime ? formatTime(exitTime) : "-"}
-            </span>
-          </div>
+          <Row label="Exit" value={exit} />
+          <Row
+            label="Time"
+            value={exitTime ? formatTime(exitTime) : "-"}
+          />
 
           <div
             style={{
@@ -223,122 +191,160 @@ export default function TradeCard({ t = {} }) {
 }
 
 // ==============================
-// 🎨 STYLES
+// 🔹 SMALL ROW COMPONENT
+// ==============================
+function Row({ label, value, highlight }) {
+  return (
+    <div
+      style={{
+        ...styles.row,
+        ...(highlight ? styles.highlight : {}),
+      }}
+    >
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+// ==============================
+// 🎨 STYLES (PREMIUM)
 // ==============================
 const styles = {
   card: {
     background: "#0f172a",
     padding: "14px",
-    marginBottom: "12px",
-    borderRadius: "14px",
+    marginBottom: "14px",
+    borderRadius: "16px",
     border: "1px solid #1e293b",
+    transition: "all 0.25s ease",
   },
 
-  callBg: { background: "#052e1b" },
-  putBg: { background: "#3b0a0a" },
+  callBg: { background: "linear-gradient(145deg,#052e1b,#022c22)" },
+  putBg: { background: "linear-gradient(145deg,#3b0a0a,#1f0a0a)" },
 
-  callGlow: { boxShadow: "0 0 14px #00ff9f" },
-  putGlow: { boxShadow: "0 0 14px #ff4d4d" },
-  callFlash: { boxShadow: "0 0 10px #00ff9f" },
-  putFlash: { boxShadow: "0 0 10px #ff4d4d" },
+  callGlow: { boxShadow: "0 0 14px rgba(0,255,159,0.4)" },
+  putGlow: { boxShadow: "0 0 14px rgba(255,77,77,0.4)" },
+
+  callPulse: { boxShadow: "0 0 8px rgba(0,255,159,0.3)" },
+  putPulse: { boxShadow: "0 0 8px rgba(255,77,77,0.3)" },
 
   header: {
     display: "flex",
     justifyContent: "space-between",
+    marginBottom: "4px",
   },
 
-  symbol: { fontWeight: "bold" },
+  symbol: {
+    fontWeight: "600",
+    fontSize: "15px",
+    letterSpacing: "0.3px",
+  },
 
+  sub: {
+    fontSize: "11px",
+    color: "#9ca3af",
+    marginBottom: "6px",
+  },
+
+  dir: (d) => ({
+    fontWeight: "700",
+    fontSize: "13px",
+    color: d === "CALL" ? "#00ff9f" : "#ff4d4d",
+    marginBottom: "6px",
+  }),
+
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "6px",
+  },
+
+  row: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "12px",
+    padding: "4px 6px",
+    borderRadius: "6px",
+    background: "#020617",
+  },
+
+  highlight: {
+    background: "#1e293b",
+  },
+
+  moveBox: {
+    marginTop: "8px",
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "12px",
+  },
+
+  probWrap: {
+    marginTop: "8px",
+  },
+
+  probText: {
+    fontSize: "11px",
+    marginBottom: "3px",
+  },
+
+  probBar: {
+    height: "6px",
+    background: "#1f2937",
+    borderRadius: "6px",
+    overflow: "hidden",
+  },
+
+  probFill: {
+    height: "100%",
+    borderRadius: "6px",
+    transition: "width 0.4s ease",
+  },
+
+  pnl: {
+    marginTop: "10px",
+    fontWeight: "700",
+    fontSize: "14px",
+    textAlign: "right",
+  },
+
+  divider: {
+    height: "1px",
+    background: "#1f2937",
+    margin: "8px 0",
+  },
+
+  // badges
   activeBadge: {
     background: "#064e3b",
     color: "#00ff9f",
     padding: "4px 8px",
-    borderRadius: "6px",
+    borderRadius: "8px",
+    fontSize: "11px",
   },
 
   winBadge: {
     background: "#022c22",
     color: "#00ff9f",
     padding: "4px 8px",
-    borderRadius: "6px",
+    borderRadius: "8px",
+    fontSize: "11px",
   },
 
   lossBadge: {
     background: "#3b0a0a",
     color: "#ff4d4d",
     padding: "4px 8px",
-    borderRadius: "6px",
+    borderRadius: "8px",
+    fontSize: "11px",
   },
 
   closedBadge: {
     background: "#1f2937",
     color: "#9ca3af",
     padding: "4px 8px",
-    borderRadius: "6px",
-  },
-
-  sub: {
+    borderRadius: "8px",
     fontSize: "11px",
-    color: "#9ca3af",
-  },
-
-  dir: (d) => ({
-    fontWeight: "bold",
-    color: d === "CALL" ? "#00ff9f" : "#ff4d4d",
-  }),
-
-  row: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: "12px",
-    marginTop: "2px",
-  },
-
-  pnl: {
-    marginTop: "8px",
-    fontWeight: "bold",
-  },
-
-  activeBox: {
-    marginTop: "6px",
-    textAlign: "center",
-    fontSize: "12px",
-    color: "#00ff9f",
-  },
-
-  probBox: {
-    marginTop: "6px",
-  },
-
-  probText: {
-    fontSize: "11px",
-    marginBottom: "2px",
-  },
-
-  probBar: {
-    height: "6px",
-    background: "#1f2937",
-    borderRadius: "4px",
-  },
-
-  probFill: {
-    height: "6px",
-    borderRadius: "4px",
-  },
-
-  divider: {
-    height: "1px",
-    background: "#1f2937",
-    margin: "6px 0",
-  },
-
-  hitTP: {
-    background: "#022c22",
-    borderRadius: "4px",
-  },
-
-  hitSL: {
-    background: "#3b0a0a",
-    borderRadius: "4px",
   },
 };

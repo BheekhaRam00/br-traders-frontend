@@ -1,5 +1,5 @@
 // ==============================
-// 📦 TRADE CARD (CALL/PUT THEME)
+// 📦 TRADE CARD (BADGES UPGRADE)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
@@ -55,12 +55,29 @@ export default function TradeCard({ t = {} }) {
   const isUpdated = t._updated;
 
   // ================================
-  // 🎨 CARD STYLE (DYNAMIC)
+  // 🏷️ STATUS BADGE (NEW)
+  // ================================
+  let badge = {
+    text: "ACTIVE",
+    style: styles.activeBadge,
+  };
+
+  if (isClosed) {
+    if (exitType === "TP") {
+      badge = { text: "WIN", style: styles.winBadge };
+    } else if (exitType === "SL") {
+      badge = { text: "LOSS", style: styles.lossBadge };
+    } else {
+      badge = { text: "CLOSED", style: styles.closedBadge };
+    }
+  }
+
+  // ================================
+  // 🎨 CARD STYLE
   // ================================
   const cardStyle = {
     ...styles.card,
 
-    // 🎯 ACTIVE BG (CALL/PUT)
     ...(isActive &&
       (isCall
         ? styles.callBg
@@ -68,7 +85,6 @@ export default function TradeCard({ t = {} }) {
         ? styles.putBg
         : {})),
 
-    // 🟢🟥 NEW GLOW
     ...(isNew &&
       (isCall
         ? styles.callGlow
@@ -76,7 +92,6 @@ export default function TradeCard({ t = {} }) {
         ? styles.putGlow
         : {})),
 
-    // 🔄 UPDATE FLASH
     ...(isUpdated &&
       (isCall
         ? styles.callFlash
@@ -90,9 +105,9 @@ export default function TradeCard({ t = {} }) {
       {/* HEADER */}
       <div style={styles.header}>
         <span style={styles.symbol}>{symbol}</span>
-        <span style={styles.status(isActive)}>
-          {isClosed ? "CLOSED" : "ACTIVE"}
-        </span>
+
+        {/* 🔥 NEW BADGE */}
+        <span style={badge.style}>{badge.text}</span>
       </div>
 
       {/* STRATEGY */}
@@ -151,14 +166,7 @@ export default function TradeCard({ t = {} }) {
 
           <div style={styles.row}>
             <span>Result</span>
-            <span
-              style={{
-                color:
-                  exitType === "TP"
-                    ? "#00ff9f"
-                    : "#ff4d4d",
-              }}
-            >
+            <span style={{ color: pnlColor }}>
               {exitType}
             </span>
           </div>
@@ -193,28 +201,14 @@ const styles = {
   },
 
   // 🎯 ACTIVE BACKGROUND
-  callBg: {
-    background: "#052e1b",
-  },
-  putBg: {
-    background: "#3b0a0a",
-  },
+  callBg: { background: "#052e1b" },
+  putBg: { background: "#3b0a0a" },
 
-  // 🟢 CALL EFFECTS
-  callGlow: {
-    boxShadow: "0 0 14px #00ff9f",
-  },
-  callFlash: {
-    boxShadow: "0 0 10px #00ff9f",
-  },
-
-  // 🔴 PUT EFFECTS
-  putGlow: {
-    boxShadow: "0 0 14px #ff4d4d",
-  },
-  putFlash: {
-    boxShadow: "0 0 10px #ff4d4d",
-  },
+  // 🔥 EFFECTS
+  callGlow: { boxShadow: "0 0 14px #00ff9f" },
+  putGlow: { boxShadow: "0 0 14px #ff4d4d" },
+  callFlash: { boxShadow: "0 0 10px #00ff9f" },
+  putFlash: { boxShadow: "0 0 10px #ff4d4d" },
 
   header: {
     display: "flex",
@@ -227,13 +221,39 @@ const styles = {
     fontSize: "14px",
   },
 
-  status: (active) => ({
+  // 🔥 BADGES
+  activeBadge: {
+    background: "#064e3b",
+    color: "#00ff9f",
     fontSize: "11px",
-    padding: "3px 8px",
+    padding: "4px 8px",
     borderRadius: "6px",
-    background: active ? "#064e3b" : "#1f2937",
-    color: "#fff",
-  }),
+    animation: "pulse 1.5s infinite",
+  },
+
+  winBadge: {
+    background: "#022c22",
+    color: "#00ff9f",
+    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+  },
+
+  lossBadge: {
+    background: "#3b0a0a",
+    color: "#ff4d4d",
+    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+  },
+
+  closedBadge: {
+    background: "#1f2937",
+    color: "#9ca3af",
+    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+  },
 
   sub: {
     fontSize: "11px",

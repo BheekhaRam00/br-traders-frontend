@@ -1,8 +1,8 @@
 // ==============================================
-// 🚀 DASHBOARD WITH TODAY STATS + LIVE UPDATE
+// 🚀 DASHBOARD + LIVE UPDATE + FILTERS
 // ==============================================
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
@@ -15,6 +15,11 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 🔥 filters
+  const [symbol, setSymbol] = useState("ALL");
+  const [tf, setTf] = useState("ALL");
+  const [strategy, setStrategy] = useState("ALL");
 
   const prevActiveRef = useRef([]);
 
@@ -72,7 +77,7 @@ export default function Home() {
   }, []);
 
   // ================================
-  // 📅 TODAY FILTER
+  // 📅 TODAY SPLIT
   // ================================
   const today = new Date().toDateString();
 
@@ -89,34 +94,49 @@ export default function Home() {
   );
 
   // ================================
-  // 📊 TOTAL STATS
+  // 🧠 UNIQUE FILTER VALUES
   // ================================
-  const total = history.length;
-  const wins = history.filter((t) => t.exitType === "TP").length;
-  const losses = history.filter((t) => t.exitType === "SL").length;
-  const pnl = history.reduce((s, t) => s + calcPnL(t), 0);
+  const symbols = useMemo(() => {
+    const set = new Set();
+    [...active, ...history].forEach((t) => t.symbol && set.add(t.symbol));
+    return ["ALL", ...Array.from(set)];
+  }, [active, history]);
+
+  const tfs = useMemo(() => {
+    const set = new Set();
+    [...active, ...history].forEach((t) => t.tf && set.add(t.tf));
+    return ["ALL", ...Array.from(set)];
+  }, [active, history]);
+
+  const strategies = useMemo(() => {
+    const set = new Set();
+    [...active, ...history].forEach((t) => t.strategy && set.add(t.strategy));
+    return ["ALL", ...Array.from(set)];
+  }, [active, history]);
 
   // ================================
-  // 🔥 TODAY STATS (NEW)
+  // 🔍 FILTER FUNCTION
   // ================================
-  const todayTotal = todayTrades.length;
+  const applyFilter = (list) => {
+    return list.filter((t) => {
+      if (symbol !== "ALL" && t.symbol !== symbol) return false;
+      if (tf !== "ALL" && t.tf !== tf) return false;
+      if (strategy !== "ALL" && t.strategy !== strategy) return false;
+      return true;
+    });
+  };
 
-  const todayWins = todayTrades.filter(
-    (t) => t.exitType === "TP"
-  ).length;
+  const filteredActive = applyFilter(active);
+  const filteredToday = applyFilter(todayTrades);
+  const filteredHistory = applyFilter(oldHistory);
 
-  const todayLoss = todayTrades.filter(
-    (t) => t.exitType === "SL"
-  ).length;
-
-  const todayPnL = todayTrades.reduce(
-    (s, t) => s + calcPnL(t),
-    0
-  );
-
-  const todayWinrate = todayTotal
-    ? ((todayWins / todayTotal) * 100).toFixed(1)
-    : 0;
+  // ================================
+  // 📊 STATS (filtered)
+  // ================================
+  const total = filteredHistory.length;
+  const wins = filteredHistory.filter((t) => t.exitType === "TP").length;
+  const losses = filteredHistory.filter((t) => t.exitType === "SL").length;
+  const pnl = filteredHistory.reduce((s, t) => s + calcPnL(t), 0);
 
   // ================================
   // UI
@@ -125,7 +145,14 @@ export default function Home() {
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
-      {/* TOTAL STATS */}
+      {/* 🔥 FILTERS */}
+      <div style={styles.filters}>
+        <Select label="Symbol" value={symbol} set={setSymbol} options={symbols} />
+        <Select label="TF" value={tf} set={setTf} options={tfs} />
+        <Select label="Strategy" value={strategy} set={setStrategy} options={strategies} />
+      </div>
+
+      {/* STATS */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
         <Stat label="Wins" value={wins} />
@@ -133,38 +160,26 @@ export default function Home() {
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
-      {/* 🔥 TODAY PANEL */}
-      <div style={styles.todayBox}>
-        <h4>📅 Today Performance</h4>
-        <div style={styles.stats}>
-          <Stat label="Trades" value={todayTotal} />
-          <Stat label="Wins" value={todayWins} />
-          <Stat label="Loss" value={todayLoss} />
-          <Stat label="Win %" value={todayWinrate} />
-          <Stat label="PnL" value={todayPnL.toFixed(2)} />
-        </div>
-      </div>
-
       {loading && <p>Loading...</p>}
 
       {/* ACTIVE */}
       <h3 style={styles.section}>🟢 Active Trades</h3>
-      {active.length === 0 && <p>No active trades</p>}
-      {active.map((t) => (
+      {filteredActive.length === 0 && <p>No active trades</p>}
+      {filteredActive.map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
 
-      {/* TODAY CLOSED */}
+      {/* TODAY */}
       <h3 style={styles.section}>🟡 Today Closed</h3>
-      {todayTrades.length === 0 && <p>No trades today</p>}
-      {todayTrades.map((t) => (
+      {filteredToday.length === 0 && <p>No trades today</p>}
+      {filteredToday.map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
 
       {/* HISTORY */}
       <h3 style={styles.section}>📜 History</h3>
-      {oldHistory.length === 0 && <p>No history</p>}
-      {oldHistory.slice(0, 20).map((t) => (
+      {filteredHistory.length === 0 && <p>No history</p>}
+      {filteredHistory.slice(0, 20).map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
     </div>
@@ -172,6 +187,19 @@ export default function Home() {
 }
 
 // ================================
+function Select({ label, value, set, options }) {
+  return (
+    <div style={styles.selectBox}>
+      <span>{label}</span>
+      <select value={value} onChange={(e) => set(e.target.value)}>
+        {options.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Stat({ label, value }) {
   return (
     <div style={styles.statBox}>
@@ -189,10 +217,25 @@ const styles = {
     padding: "15px",
     color: "white",
   },
-  title: { marginBottom: "15px" },
+
+  filters: {
+    display: "flex",
+    gap: "10px",
+    marginBottom: "10px",
+    flexWrap: "wrap",
+  },
+
+  selectBox: {
+    background: "#111827",
+    padding: "6px",
+    borderRadius: "8px",
+    fontSize: "12px",
+  },
+
+  title: { marginBottom: "10px" },
   section: { marginTop: "20px" },
 
-  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  stats: { display: "flex", gap: "10px" },
 
   statBox: {
     background: "#111827",
@@ -204,13 +247,4 @@ const styles = {
 
   statValue: { fontWeight: "bold" },
   statLabel: { fontSize: "12px", color: "#9ca3af" },
-
-  // 🔥 NEW STYLE
-  todayBox: {
-    marginTop: "15px",
-    padding: "12px",
-    background: "#0f172a",
-    border: "1px solid #1e293b",
-    borderRadius: "12px",
-  },
 };

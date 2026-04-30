@@ -1,12 +1,16 @@
 // ==============================================
-// 🚀 MAIN DASHBOARD (PRODUCTION UPGRADE)
+// 🚀 MAIN DASHBOARD (SSR SAFE FINAL)
 // ==============================================
 
 import { useEffect, useState } from "react";
-import TradeCard from "../components/TradeCard";
-import Loader from "../components/Loader";
+import dynamic from "next/dynamic";
 import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
+
+// ✅ TradeCard SSR safe load
+const TradeCard = dynamic(() => import("../components/TradeCard"), {
+  ssr: false,
+});
 
 export default function Home() {
   const [active, setActive] = useState([]);
@@ -14,9 +18,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ================================
-  // 🔄 FETCH DATA (SAFE)
-  // ================================
   const loadData = async () => {
     try {
       setError("");
@@ -36,9 +37,6 @@ export default function Home() {
     }
   };
 
-  // ================================
-  // 🔁 AUTO REFRESH (NO OVERLAP)
-  // ================================
   useEffect(() => {
     let running = false;
 
@@ -59,14 +57,15 @@ export default function Home() {
   }, []);
 
   // ================================
-  // 🧠 SORT HISTORY (LATEST FIRST)
+  // SORT
   // ================================
-  const sortedHistory = [...history].sort((a, b) => {
-    return new Date(b.exitTime || 0) - new Date(a.exitTime || 0);
-  });
+  const sortedHistory = [...history].sort(
+    (a, b) =>
+      new Date(b.exitTime || 0) - new Date(a.exitTime || 0)
+  );
 
   // ================================
-  // 📊 STATS (FIXED)
+  // STATS
   // ================================
   const total = sortedHistory.length;
 
@@ -78,20 +77,15 @@ export default function Home() {
     (t) => t.exitType === "SL"
   ).length;
 
-  const pnl = sortedHistory.reduce((sum, t) => {
-    return sum + calcPnL(t);
-  }, 0);
+  const pnl = sortedHistory.reduce(
+    (sum, t) => sum + calcPnL(t),
+    0
+  );
 
-  // ================================
-  // 🎯 UI
-  // ================================
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
-      {/* ============================= */}
-      {/* 📊 STATS */}
-      {/* ============================= */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
         <Stat label="Wins" value={wins} />
@@ -99,23 +93,11 @@ export default function Home() {
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
-      {/* ============================= */}
-      {/* ❌ ERROR */}
-      {/* ============================= */}
-      {error && (
-        <div style={styles.error}>
-          {error}
-        </div>
-      )}
+      {error && <div style={styles.error}>{error}</div>}
 
-      {/* ============================= */}
-      {/* 🔄 LOADING */}
-      {/* ============================= */}
-      {loading && <Loader />}
+      {loading && <p>Loading...</p>}
 
-      {/* ============================= */}
-      {/* 🔥 ACTIVE */}
-      {/* ============================= */}
+      {/* ACTIVE */}
       <h3 style={styles.section}>🟢 Active Trades</h3>
 
       {active.length === 0 && !loading && (
@@ -126,9 +108,7 @@ export default function Home() {
         <TradeCard key={t.id} t={t} />
       ))}
 
-      {/* ============================= */}
-      {/* 📜 HISTORY */}
-      {/* ============================= */}
+      {/* HISTORY */}
       <h3 style={styles.section}>📜 Trade History</h3>
 
       {sortedHistory.length === 0 && !loading && (
@@ -143,8 +123,6 @@ export default function Home() {
 }
 
 // ================================
-// 📊 STAT COMPONENT
-// ================================
 function Stat({ label, value }) {
   return (
     <div style={styles.statBox}>
@@ -155,8 +133,6 @@ function Stat({ label, value }) {
 }
 
 // ================================
-// 🎨 STYLES
-// ================================
 const styles = {
   container: {
     background: "#020617",
@@ -165,22 +141,9 @@ const styles = {
     color: "white",
     fontFamily: "sans-serif",
   },
-
-  title: {
-    marginBottom: "15px",
-  },
-
-  section: {
-    marginTop: "20px",
-    marginBottom: "10px",
-  },
-
-  stats: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-
+  title: { marginBottom: "15px" },
+  section: { marginTop: "20px", marginBottom: "10px" },
+  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
   statBox: {
     background: "#111827",
     padding: "10px",
@@ -188,17 +151,8 @@ const styles = {
     flex: "1",
     textAlign: "center",
   },
-
-  statValue: {
-    fontSize: "16px",
-    fontWeight: "bold",
-  },
-
-  statLabel: {
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-
+  statValue: { fontSize: "16px", fontWeight: "bold" },
+  statLabel: { fontSize: "12px", color: "#9ca3af" },
   error: {
     background: "#7f1d1d",
     padding: "10px",

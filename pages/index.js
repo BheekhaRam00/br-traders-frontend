@@ -1,8 +1,8 @@
 // ==============================================
-// 🚀 DASHBOARD WITH TODAY BUFFER
+// 🚀 DASHBOARD WITH TODAY BUFFER + LIVE UPDATE
 // ==============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
@@ -16,8 +16,11 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 NEW: previous active tracking
+  const prevActiveRef = useRef([]);
+
   // ================================
-  // FETCH
+  // FETCH + LIVE UPDATE DETECTION
   // ================================
   const loadData = async () => {
     try {
@@ -26,7 +29,31 @@ export default function Home() {
         getHistory(),
       ]);
 
-      setActive(a || []);
+      const prev = prevActiveRef.current;
+
+      // 🔥 detect new + updated trades
+      const processed = (a || []).map((t) => {
+        const old = prev.find((p) => p.id === t.id);
+
+        // 🆕 new trade
+        if (!old) {
+          return { ...t, _new: true };
+        }
+
+        // 🔄 updated trade (price / probability change)
+        if (
+          old.entryPrice !== t.entryPrice ||
+          old.probability !== t.probability
+        ) {
+          return { ...t, _updated: true };
+        }
+
+        return t;
+      });
+
+      prevActiveRef.current = a || [];
+
+      setActive(processed);
       setHistory(h || []);
     } catch (err) {
       console.log(err);
@@ -35,6 +62,9 @@ export default function Home() {
     }
   };
 
+  // ================================
+  // AUTO REFRESH
+  // ================================
   useEffect(() => {
     let running = false;
 
@@ -69,7 +99,7 @@ export default function Home() {
   );
 
   // ================================
-  // 📊 STATS (only history)
+  // 📊 STATS
   // ================================
   const total = history.length;
 

@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD + INTELLIGENCE (PHASE 3)
+// 🚀 DASHBOARD FINAL (PHASE 4 COMPLETE)
 // ==============================================
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -21,6 +21,22 @@ export default function Home() {
   const [strategy, setStrategy] = useState("ALL");
 
   const prevActiveRef = useRef([]);
+  const scrollRef = useRef(null);
+  const prevHistoryRef = useRef([]);
+
+  // ================================
+  // 🔊 SOUND ALERT
+  // ================================
+  const playSound = (type) => {
+    try {
+      const audio = new Audio(
+        type === "TP"
+          ? "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+          : "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+      );
+      audio.play();
+    } catch {}
+  };
 
   // ================================
   // FETCH
@@ -31,6 +47,18 @@ export default function Home() {
         getActiveTrades(),
         getHistory(),
       ]);
+
+      // 🔊 detect new closed trade
+      const prevH = prevHistoryRef.current;
+
+      h.forEach((t) => {
+        const old = prevH.find((p) => p.id === t.id);
+        if (!old && t.exitType) {
+          playSound(t.exitType);
+        }
+      });
+
+      prevHistoryRef.current = h || [];
 
       const prev = prevActiveRef.current;
 
@@ -60,6 +88,9 @@ export default function Home() {
     }
   };
 
+  // ================================
+  // AUTO REFRESH
+  // ================================
   useEffect(() => {
     let running = false;
 
@@ -74,6 +105,17 @@ export default function Home() {
     const i = setInterval(safeLoad, 2000);
     return () => clearInterval(i);
   }, []);
+
+  // ================================
+  // 📍 AUTO SCROLL
+  // ================================
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
+  }, [active]);
 
   // ================================
   // TODAY SPLIT
@@ -92,9 +134,6 @@ export default function Home() {
       new Date(t.exitTime).toDateString() !== today
   );
 
-  // ================================
-  // SORT (NEW)
-  // ================================
   const sortedHistory = [...oldHistory].sort(
     (a, b) =>
       new Date(b.exitTime || 0) - new Date(a.exitTime || 0)
@@ -109,7 +148,7 @@ export default function Home() {
     .slice(0, 5);
 
   // ================================
-  // FILTER VALUES
+  // FILTERS
   // ================================
   const symbols = useMemo(() => {
     const set = new Set();
@@ -160,18 +199,16 @@ export default function Home() {
   const groupedHistory = groupByStrategy(filteredHistory);
 
   // ================================
-  // 📊 STATS
+  // STATS
   // ================================
   const total = filteredHistory.length;
   const wins = filteredHistory.filter((t) => t.exitType === "TP").length;
-  const losses = filteredHistory.filter((t) => t.exitType === "SL").length;
   const pnl = filteredHistory.reduce((s, t) => s + calcPnL(t), 0);
 
   const winrate = total
     ? ((wins / total) * 100).toFixed(1)
     : 0;
 
-  // 🔥 TODAY STATS
   const todayTotal = filteredToday.length;
   const todayWins = filteredToday.filter((t) => t.exitType === "TP").length;
   const todayPnL = filteredToday.reduce((s, t) => s + calcPnL(t), 0);
@@ -187,6 +224,11 @@ export default function Home() {
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
+      {/* 🔄 MANUAL REFRESH */}
+      <button style={styles.refresh} onClick={loadData}>
+        🔄 Refresh
+      </button>
+
       {/* FILTERS */}
       <div style={styles.filters}>
         <Select label="Symbol" value={symbol} set={setSymbol} options={symbols} />
@@ -194,18 +236,16 @@ export default function Home() {
         <Select label="Strategy" value={strategy} set={setStrategy} options={strategies} />
       </div>
 
-      {/* TOTAL STATS */}
+      {/* STATS */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
-        <Stat label="Wins" value={wins} />
-        <Stat label="Loss" value={losses} />
         <Stat label="Win %" value={winrate} />
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
-      {/* 🔥 TODAY PANEL */}
+      {/* TODAY */}
       <div style={styles.todayBox}>
-        <h4>📅 Today Performance</h4>
+        <h4>📅 Today</h4>
         <div style={styles.stats}>
           <Stat label="Trades" value={todayTotal} />
           <Stat label="Win %" value={todayWinrate} />
@@ -213,11 +253,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🔥 RECENT ACTIVITY */}
+      {/* ACTIVITY */}
       <div style={styles.activityBox}>
-        <h4>🕒 Recent Activity</h4>
+        <h4>🕒 Activity</h4>
         {recentTrades.map((t) => (
-          <div key={t.id} style={styles.activityItem}>
+          <div key={t.id}>
             {t.symbol} • {t.exitType} • ₹{calcPnL(t)}
           </div>
         ))}
@@ -226,37 +266,25 @@ export default function Home() {
       {loading && <p>Loading...</p>}
 
       {/* ACTIVE */}
-      <h3 style={styles.section}>🟢 Active Trades ({filteredActive.length})</h3>
-      {Object.entries(groupedActive).map(([key, trades]) => (
-        <div key={key}>
-          <h4 style={styles.groupTitle}>📦 {key}</h4>
-          {trades.map((t) => (
-            <TradeCard key={t.id} t={t} />
-          ))}
-        </div>
+      <h3 ref={scrollRef}>🟢 Active ({filteredActive.length})</h3>
+      {Object.values(groupedActive).flat().map((t) => (
+        <TradeCard key={t.id} t={t} />
       ))}
 
       {/* TODAY */}
-      <h3 style={styles.section}>🟡 Today Closed</h3>
-      {Object.entries(groupedToday).map(([key, trades]) => (
-        <div key={key}>
-          <h4 style={styles.groupTitle}>📦 {key}</h4>
-          {trades.map((t) => (
-            <TradeCard key={t.id} t={t} />
-          ))}
-        </div>
+      <h3>🟡 Today Closed</h3>
+      {Object.values(groupedToday).flat().map((t) => (
+        <TradeCard key={t.id} t={t} />
       ))}
 
       {/* HISTORY */}
-      <h3 style={styles.section}>📜 History</h3>
-      {Object.entries(groupedHistory).map(([key, trades]) => (
-        <div key={key}>
-          <h4 style={styles.groupTitle}>📦 {key}</h4>
-          {trades.slice(0, 20).map((t) => (
-            <TradeCard key={t.id} t={t} />
-          ))}
-        </div>
-      ))}
+      <h3>📜 History</h3>
+      {Object.values(groupedHistory)
+        .flat()
+        .slice(0, 20)
+        .map((t) => (
+          <TradeCard key={t.id} t={t} />
+        ))}
     </div>
   );
 }
@@ -278,8 +306,8 @@ function Select({ label, value, set, options }) {
 function Stat({ label, value }) {
   return (
     <div style={styles.statBox}>
-      <div style={styles.statValue}>{value}</div>
-      <div style={styles.statLabel}>{label}</div>
+      <div>{value}</div>
+      <div>{label}</div>
     </div>
   );
 }
@@ -293,53 +321,42 @@ const styles = {
     color: "white",
   },
 
-  filters: { display: "flex", gap: "10px", marginBottom: "10px", flexWrap: "wrap" },
+  refresh: {
+    marginBottom: "10px",
+    padding: "6px 10px",
+    background: "#1f2937",
+    border: "none",
+    color: "white",
+    borderRadius: "6px",
+  },
+
+  filters: { display: "flex", gap: "10px", flexWrap: "wrap" },
 
   todayBox: {
-    marginTop: "15px",
+    marginTop: "10px",
     padding: "10px",
     background: "#0f172a",
     borderRadius: "10px",
   },
 
   activityBox: {
-    marginTop: "15px",
+    marginTop: "10px",
     padding: "10px",
     background: "#111827",
     borderRadius: "10px",
   },
 
-  activityItem: {
-    fontSize: "12px",
-    marginBottom: "4px",
-  },
+  stats: { display: "flex", gap: "10px" },
 
   selectBox: {
     background: "#111827",
     padding: "6px",
     borderRadius: "8px",
-    fontSize: "12px",
   },
-
-  groupTitle: {
-    marginTop: "10px",
-    fontSize: "13px",
-    color: "#38bdf8",
-  },
-
-  title: { marginBottom: "10px" },
-  section: { marginTop: "20px" },
-
-  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
 
   statBox: {
     background: "#111827",
     padding: "10px",
     borderRadius: "10px",
-    flex: 1,
-    textAlign: "center",
   },
-
-  statValue: { fontWeight: "bold" },
-  statLabel: { fontSize: "12px", color: "#9ca3af" },
 };

@@ -1,8 +1,8 @@
 // ==============================================
-// 🚀 DASHBOARD FINAL PRO (INTELLIGENCE UPGRADE)
+// 🚀 DASHBOARD (CLEAN PRO UI REBUILD)
 // ==============================================
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
@@ -15,18 +15,11 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const [symbol, setSymbol] = useState("ALL");
-  const [tf, setTf] = useState("ALL");
-  const [strategy, setStrategy] = useState("ALL");
-
-  const prevActiveRef = useRef([]);
   const prevHistoryRef = useRef([]);
-  const scrollRef = useRef(null);
 
   // ================================
-  // 🔊 SOUND
+  // 🔊 SOUND (SAFE)
   // ================================
   const playSound = (type) => {
     try {
@@ -44,18 +37,14 @@ export default function Home() {
   // ================================
   const loadData = async () => {
     try {
-      setError("");
-
       const [a, h] = await Promise.all([
         getActiveTrades(),
         getHistory(),
       ]);
 
-      // 🔊 detect new closed trade
-      const prevH = prevHistoryRef.current;
-
+      // 🔊 detect new close
       h.forEach((t) => {
-        const old = prevH.find((p) => p.id === t.id);
+        const old = prevHistoryRef.current.find((p) => p.id === t.id);
         if (!old && t.exitType) {
           playSound(t.exitType);
         }
@@ -63,59 +52,26 @@ export default function Home() {
 
       prevHistoryRef.current = h || [];
 
-      const prev = prevActiveRef.current;
-
-      const processed = (a || []).map((t) => {
-        const old = prev.find((p) => p.id === t.id);
-
-        if (!old) return { ...t, _new: true };
-
-        if (
-          old.entryPrice !== t.entryPrice ||
-          old.probability !== t.probability
-        ) {
-          return { ...t, _updated: true };
-        }
-
-        return t;
-      });
-
-      prevActiveRef.current = a || [];
-
-      setActive(processed);
+      setActive(a || []);
       setHistory(h || []);
     } catch (err) {
       console.log(err);
-      setError("❌ Failed to load data");
     } finally {
       setLoading(false);
     }
   };
 
+  // ================================
+  // AUTO REFRESH (NO SCROLL JUMP)
+  // ================================
   useEffect(() => {
-    let running = false;
-
-    const safeLoad = async () => {
-      if (running) return;
-      running = true;
-      await loadData();
-      running = false;
-    };
-
-    safeLoad();
-    const i = setInterval(safeLoad, 2000);
+    loadData();
+    const i = setInterval(loadData, 3000);
     return () => clearInterval(i);
   }, []);
 
   // ================================
-  // AUTO SCROLL
-  // ================================
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [active]);
-
-  // ================================
-  // DATA SPLIT
+  // TODAY SPLIT (FIXED)
   // ================================
   const today = new Date().toDateString();
 
@@ -137,118 +93,63 @@ export default function Home() {
   );
 
   // ================================
-  // 🔥 STRATEGY ANALYTICS
+  // 📊 STATS (CLEAN)
   // ================================
-  const strategyStats = {};
-  sortedHistory.forEach((t) => {
-    const key = t.strategy || "default";
+  const total = history.length;
+  const wins = history.filter((t) => t.exitType === "TP").length;
+  const pnl = history.reduce((s, t) => s + calcPnL(t), 0);
 
-    if (!strategyStats[key]) {
-      strategyStats[key] = {
-        trades: 0,
-        wins: 0,
-        pnl: 0,
-      };
-    }
-
-    strategyStats[key].trades++;
-    if (t.exitType === "TP") strategyStats[key].wins++;
-    strategyStats[key].pnl += calcPnL(t);
-  });
-
-  // ================================
-  // 🔥 STREAK
-  // ================================
-  let winStreak = 0;
-  let lossStreak = 0;
-
-  for (let t of sortedHistory) {
-    if (t.exitType === "TP") {
-      winStreak++;
-      break;
-    }
-  }
-
-  for (let t of sortedHistory) {
-    if (t.exitType === "SL") {
-      lossStreak++;
-      break;
-    }
-  }
-
-  // ================================
-  // 🔥 RISK
-  // ================================
-  const callCount = active.filter((t) => t.dir === "CALL").length;
-  const putCount = active.filter((t) => t.dir === "PUT").length;
-
-  // ================================
-  // 🔥 ACTIVE INTEL
-  // ================================
-  const avgProb =
-    active.reduce((s, t) => s + (t.probability || 0), 0) /
-      (active.length || 1);
-
-  const avgRR =
-    active.reduce((s, t) => s + (Number(t.rr) || 0), 0) /
-      (active.length || 1);
+  const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
   // UI
   // ================================
   return (
-    <div style={styles.container}>
-      <h2>🚀 BR Traders Dashboard</h2>
+    <div className="container">
 
-      <button style={styles.refresh} onClick={loadData}>
-        🔄 Refresh
-      </button>
+      {/* HEADER */}
+      <div className="sticky">
+        <h2>🚀 BR Traders</h2>
 
-      {error && (
-        <div style={styles.error}>
-          {error}
-          <button onClick={loadData}>Retry</button>
+        {/* STATS */}
+        <div className="stats">
+          <Stat label="Trades" value={total} />
+          <Stat label="Win %" value={winrate} />
+          <Stat label="PnL" value={pnl.toFixed(2)} />
         </div>
-      )}
-
-      {/* 🔥 STRATEGY PANEL */}
-      <div style={styles.box}>
-        <h4>📊 Strategy Stats</h4>
-        {Object.entries(strategyStats).map(([k, v]) => (
-          <div key={k}>
-            {k} → {v.trades} trades |{" "}
-            {((v.wins / v.trades) * 100 || 0).toFixed(1)}% | ₹
-            {v.pnl.toFixed(2)}
-          </div>
-        ))}
-      </div>
-
-      {/* 🔥 STREAK */}
-      <div style={styles.box}>
-        🔥 Win Streak: {winStreak} | ❌ Loss Streak: {lossStreak}
-      </div>
-
-      {/* 🔥 RISK */}
-      <div style={styles.box}>
-        CALL: {callCount} | PUT: {putCount}
-      </div>
-
-      {/* 🔥 ACTIVE INTEL */}
-      <div style={styles.box}>
-        Avg Prob: {avgProb.toFixed(1)}% | Avg RR:{" "}
-        {avgRR.toFixed(2)}
       </div>
 
       {loading && <p>Loading...</p>}
 
-      {/* ACTIVE */}
-      <h3 ref={scrollRef}>🟢 Active ({active.length})</h3>
+      {/* ============================= */}
+      {/* 🟢 ACTIVE */}
+      {/* ============================= */}
+      <h3>🟢 Active Trades</h3>
+
+      {active.length === 0 && <p>No active trades</p>}
+
       {active.map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
 
-      {/* HISTORY */}
+      {/* ============================= */}
+      {/* 🟡 TODAY CLOSED */}
+      {/* ============================= */}
+      <h3>🟡 Today Closed</h3>
+
+      {todayTrades.length === 0 && <p>No trades today</p>}
+
+      {todayTrades.map((t) => (
+        <TradeCard key={t.id} t={t} />
+      ))}
+
+      {/* ============================= */}
+      {/* 📜 HISTORY */}
+      {/* ============================= */}
       <h3>📜 History</h3>
+
+      {sortedHistory.length === 0 && <p>No history</p>}
+
       {sortedHistory.slice(0, 20).map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
@@ -257,28 +158,13 @@ export default function Home() {
 }
 
 // ================================
-const styles = {
-  container: {
-    background: "#020617",
-    minHeight: "100vh",
-    padding: "15px",
-    color: "white",
-  },
-
-  refresh: {
-    marginBottom: "10px",
-  },
-
-  box: {
-    background: "#111827",
-    padding: "10px",
-    marginTop: "10px",
-    borderRadius: "8px",
-  },
-
-  error: {
-    background: "#7f1d1d",
-    padding: "10px",
-    marginBottom: "10px",
-  },
-};
+// 📊 STAT
+// ================================
+function Stat({ label, value }) {
+  return (
+    <div className="stat-box">
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
+    </div>
+  );
+}

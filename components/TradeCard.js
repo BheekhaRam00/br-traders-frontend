@@ -1,5 +1,5 @@
 // ==============================
-// 📦 TRADE CARD (HIGHLIGHT + LIVE)
+// 📦 TRADE CARD (CALL/PUT THEME)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
@@ -43,23 +43,48 @@ export default function TradeCard({ t = {} }) {
   const pnlColor = pnl >= 0 ? "#00ff9f" : "#ff4d4d";
 
   // ================================
-  // 🔥 HIGHLIGHT FLAGS
+  // 🎯 DIRECTION COLORS
+  // ================================
+  const isCall = dir === "CALL";
+  const isPut = dir === "PUT";
+
+  // ================================
+  // 🔥 FLAGS
   // ================================
   const isNew = t._new;
   const isUpdated = t._updated;
 
   // ================================
-  // 🎨 CARD STYLE (dynamic)
+  // 🎨 CARD STYLE (DYNAMIC)
   // ================================
   const cardStyle = {
     ...styles.card,
-    ...(isNew && styles.newGlow),
-    ...(isUpdated && styles.updateFlash),
+
+    // 🎯 ACTIVE BG (CALL/PUT)
+    ...(isActive &&
+      (isCall
+        ? styles.callBg
+        : isPut
+        ? styles.putBg
+        : {})),
+
+    // 🟢🟥 NEW GLOW
+    ...(isNew &&
+      (isCall
+        ? styles.callGlow
+        : isPut
+        ? styles.putGlow
+        : {})),
+
+    // 🔄 UPDATE FLASH
+    ...(isUpdated &&
+      (isCall
+        ? styles.callFlash
+        : isPut
+        ? styles.putFlash
+        : {})),
   };
 
-  // ================================
-  // UI
-  // ================================
   return (
     <div style={cardStyle}>
       {/* HEADER */}
@@ -108,7 +133,6 @@ export default function TradeCard({ t = {} }) {
             🟢 Trade Running
           </div>
 
-          {/* 🔥 LIVE PNL */}
           <div style={{ ...styles.pnl, color: pnlColor }}>
             ₹ {pnl}
           </div>
@@ -168,14 +192,28 @@ const styles = {
     transition: "all 0.3s ease",
   },
 
-  // 🟢 NEW TRADE GLOW
-  newGlow: {
-    boxShadow: "0 0 12px #00ff9f",
+  // 🎯 ACTIVE BACKGROUND
+  callBg: {
+    background: "#052e1b",
+  },
+  putBg: {
+    background: "#3b0a0a",
   },
 
-  // 🔄 UPDATE FLASH
-  updateFlash: {
-    boxShadow: "0 0 10px #38bdf8",
+  // 🟢 CALL EFFECTS
+  callGlow: {
+    boxShadow: "0 0 14px #00ff9f",
+  },
+  callFlash: {
+    boxShadow: "0 0 10px #00ff9f",
+  },
+
+  // 🔴 PUT EFFECTS
+  putGlow: {
+    boxShadow: "0 0 14px #ff4d4d",
+  },
+  putFlash: {
+    boxShadow: "0 0 10px #ff4d4d",
   },
 
   header: {

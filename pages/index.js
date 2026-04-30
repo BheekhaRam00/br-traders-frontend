@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD FINAL (PHASE 4 COMPLETE)
+// 🚀 DASHBOARD FINAL PRO (INTELLIGENCE UPGRADE)
 // ==============================================
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -15,17 +15,18 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [symbol, setSymbol] = useState("ALL");
   const [tf, setTf] = useState("ALL");
   const [strategy, setStrategy] = useState("ALL");
 
   const prevActiveRef = useRef([]);
-  const scrollRef = useRef(null);
   const prevHistoryRef = useRef([]);
+  const scrollRef = useRef(null);
 
   // ================================
-  // 🔊 SOUND ALERT
+  // 🔊 SOUND
   // ================================
   const playSound = (type) => {
     try {
@@ -43,6 +44,8 @@ export default function Home() {
   // ================================
   const loadData = async () => {
     try {
+      setError("");
+
       const [a, h] = await Promise.all([
         getActiveTrades(),
         getHistory(),
@@ -83,14 +86,12 @@ export default function Home() {
       setHistory(h || []);
     } catch (err) {
       console.log(err);
+      setError("❌ Failed to load data");
     } finally {
       setLoading(false);
     }
   };
 
-  // ================================
-  // AUTO REFRESH
-  // ================================
   useEffect(() => {
     let running = false;
 
@@ -107,18 +108,14 @@ export default function Home() {
   }, []);
 
   // ================================
-  // 📍 AUTO SCROLL
+  // AUTO SCROLL
   // ================================
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({
-        behavior: "smooth",
-      });
-    }
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [active]);
 
   // ================================
-  // TODAY SPLIT
+  // DATA SPLIT
   // ================================
   const today = new Date().toDateString();
 
@@ -139,175 +136,122 @@ export default function Home() {
       new Date(b.exitTime || 0) - new Date(a.exitTime || 0)
   );
 
-  const recentTrades = [...history]
-    .filter((t) => t.exitTime)
-    .sort(
-      (a, b) =>
-        new Date(b.exitTime) - new Date(a.exitTime)
-    )
-    .slice(0, 5);
+  // ================================
+  // 🔥 STRATEGY ANALYTICS
+  // ================================
+  const strategyStats = {};
+  sortedHistory.forEach((t) => {
+    const key = t.strategy || "default";
+
+    if (!strategyStats[key]) {
+      strategyStats[key] = {
+        trades: 0,
+        wins: 0,
+        pnl: 0,
+      };
+    }
+
+    strategyStats[key].trades++;
+    if (t.exitType === "TP") strategyStats[key].wins++;
+    strategyStats[key].pnl += calcPnL(t);
+  });
 
   // ================================
-  // FILTERS
+  // 🔥 STREAK
   // ================================
-  const symbols = useMemo(() => {
-    const set = new Set();
-    [...active, ...history].forEach((t) => t.symbol && set.add(t.symbol));
-    return ["ALL", ...Array.from(set)];
-  }, [active, history]);
+  let winStreak = 0;
+  let lossStreak = 0;
 
-  const tfs = useMemo(() => {
-    const set = new Set();
-    [...active, ...history].forEach((t) => t.tf && set.add(t.tf));
-    return ["ALL", ...Array.from(set)];
-  }, [active, history]);
+  for (let t of sortedHistory) {
+    if (t.exitType === "TP") {
+      winStreak++;
+      break;
+    }
+  }
 
-  const strategies = useMemo(() => {
-    const set = new Set();
-    [...active, ...history].forEach((t) => t.strategy && set.add(t.strategy));
-    return ["ALL", ...Array.from(set)];
-  }, [active, history]);
-
-  const applyFilter = (list) => {
-    return list.filter((t) => {
-      if (symbol !== "ALL" && t.symbol !== symbol) return false;
-      if (tf !== "ALL" && t.tf !== tf) return false;
-      if (strategy !== "ALL" && t.strategy !== strategy) return false;
-      return true;
-    });
-  };
-
-  const filteredActive = applyFilter(active);
-  const filteredToday = applyFilter(todayTrades);
-  const filteredHistory = applyFilter(sortedHistory);
+  for (let t of sortedHistory) {
+    if (t.exitType === "SL") {
+      lossStreak++;
+      break;
+    }
+  }
 
   // ================================
-  // GROUPING
+  // 🔥 RISK
   // ================================
-  const groupByStrategy = (list) => {
-    const map = {};
-    list.forEach((t) => {
-      const key = t.strategy || "default";
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
-    });
-    return map;
-  };
-
-  const groupedActive = groupByStrategy(filteredActive);
-  const groupedToday = groupByStrategy(filteredToday);
-  const groupedHistory = groupByStrategy(filteredHistory);
+  const callCount = active.filter((t) => t.dir === "CALL").length;
+  const putCount = active.filter((t) => t.dir === "PUT").length;
 
   // ================================
-  // STATS
+  // 🔥 ACTIVE INTEL
   // ================================
-  const total = filteredHistory.length;
-  const wins = filteredHistory.filter((t) => t.exitType === "TP").length;
-  const pnl = filteredHistory.reduce((s, t) => s + calcPnL(t), 0);
+  const avgProb =
+    active.reduce((s, t) => s + (t.probability || 0), 0) /
+      (active.length || 1);
 
-  const winrate = total
-    ? ((wins / total) * 100).toFixed(1)
-    : 0;
-
-  const todayTotal = filteredToday.length;
-  const todayWins = filteredToday.filter((t) => t.exitType === "TP").length;
-  const todayPnL = filteredToday.reduce((s, t) => s + calcPnL(t), 0);
-
-  const todayWinrate = todayTotal
-    ? ((todayWins / todayTotal) * 100).toFixed(1)
-    : 0;
+  const avgRR =
+    active.reduce((s, t) => s + (Number(t.rr) || 0), 0) /
+      (active.length || 1);
 
   // ================================
   // UI
   // ================================
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
+      <h2>🚀 BR Traders Dashboard</h2>
 
-      {/* 🔄 MANUAL REFRESH */}
       <button style={styles.refresh} onClick={loadData}>
         🔄 Refresh
       </button>
 
-      {/* FILTERS */}
-      <div style={styles.filters}>
-        <Select label="Symbol" value={symbol} set={setSymbol} options={symbols} />
-        <Select label="TF" value={tf} set={setTf} options={tfs} />
-        <Select label="Strategy" value={strategy} set={setStrategy} options={strategies} />
-      </div>
-
-      {/* STATS */}
-      <div style={styles.stats}>
-        <Stat label="Trades" value={total} />
-        <Stat label="Win %" value={winrate} />
-        <Stat label="PnL" value={pnl.toFixed(2)} />
-      </div>
-
-      {/* TODAY */}
-      <div style={styles.todayBox}>
-        <h4>📅 Today</h4>
-        <div style={styles.stats}>
-          <Stat label="Trades" value={todayTotal} />
-          <Stat label="Win %" value={todayWinrate} />
-          <Stat label="PnL" value={todayPnL.toFixed(2)} />
+      {error && (
+        <div style={styles.error}>
+          {error}
+          <button onClick={loadData}>Retry</button>
         </div>
-      </div>
+      )}
 
-      {/* ACTIVITY */}
-      <div style={styles.activityBox}>
-        <h4>🕒 Activity</h4>
-        {recentTrades.map((t) => (
-          <div key={t.id}>
-            {t.symbol} • {t.exitType} • ₹{calcPnL(t)}
+      {/* 🔥 STRATEGY PANEL */}
+      <div style={styles.box}>
+        <h4>📊 Strategy Stats</h4>
+        {Object.entries(strategyStats).map(([k, v]) => (
+          <div key={k}>
+            {k} → {v.trades} trades |{" "}
+            {((v.wins / v.trades) * 100 || 0).toFixed(1)}% | ₹
+            {v.pnl.toFixed(2)}
           </div>
         ))}
+      </div>
+
+      {/* 🔥 STREAK */}
+      <div style={styles.box}>
+        🔥 Win Streak: {winStreak} | ❌ Loss Streak: {lossStreak}
+      </div>
+
+      {/* 🔥 RISK */}
+      <div style={styles.box}>
+        CALL: {callCount} | PUT: {putCount}
+      </div>
+
+      {/* 🔥 ACTIVE INTEL */}
+      <div style={styles.box}>
+        Avg Prob: {avgProb.toFixed(1)}% | Avg RR:{" "}
+        {avgRR.toFixed(2)}
       </div>
 
       {loading && <p>Loading...</p>}
 
       {/* ACTIVE */}
-      <h3 ref={scrollRef}>🟢 Active ({filteredActive.length})</h3>
-      {Object.values(groupedActive).flat().map((t) => (
-        <TradeCard key={t.id} t={t} />
-      ))}
-
-      {/* TODAY */}
-      <h3>🟡 Today Closed</h3>
-      {Object.values(groupedToday).flat().map((t) => (
+      <h3 ref={scrollRef}>🟢 Active ({active.length})</h3>
+      {active.map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
 
       {/* HISTORY */}
       <h3>📜 History</h3>
-      {Object.values(groupedHistory)
-        .flat()
-        .slice(0, 20)
-        .map((t) => (
-          <TradeCard key={t.id} t={t} />
-        ))}
-    </div>
-  );
-}
-
-// ================================
-function Select({ label, value, set, options }) {
-  return (
-    <div style={styles.selectBox}>
-      <span>{label}</span>
-      <select value={value} onChange={(e) => set(e.target.value)}>
-        {options.map((o) => (
-          <option key={o}>{o}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div style={styles.statBox}>
-      <div>{value}</div>
-      <div>{label}</div>
+      {sortedHistory.slice(0, 20).map((t) => (
+        <TradeCard key={t.id} t={t} />
+      ))}
     </div>
   );
 }
@@ -323,40 +267,18 @@ const styles = {
 
   refresh: {
     marginBottom: "10px",
-    padding: "6px 10px",
-    background: "#1f2937",
-    border: "none",
-    color: "white",
-    borderRadius: "6px",
   },
 
-  filters: { display: "flex", gap: "10px", flexWrap: "wrap" },
-
-  todayBox: {
-    marginTop: "10px",
-    padding: "10px",
-    background: "#0f172a",
-    borderRadius: "10px",
-  },
-
-  activityBox: {
-    marginTop: "10px",
-    padding: "10px",
+  box: {
     background: "#111827",
-    borderRadius: "10px",
-  },
-
-  stats: { display: "flex", gap: "10px" },
-
-  selectBox: {
-    background: "#111827",
-    padding: "6px",
+    padding: "10px",
+    marginTop: "10px",
     borderRadius: "8px",
   },
 
-  statBox: {
-    background: "#111827",
+  error: {
+    background: "#7f1d1d",
     padding: "10px",
-    borderRadius: "10px",
+    marginBottom: "10px",
   },
 };

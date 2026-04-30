@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD + LIVE UPDATE + FILTERS
+// 🚀 DASHBOARD + LIVE UPDATE + FILTERS + GROUPING
 // ==============================================
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -16,7 +16,6 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 filters
   const [symbol, setSymbol] = useState("ALL");
   const [tf, setTf] = useState("ALL");
   const [strategy, setStrategy] = useState("ALL");
@@ -77,7 +76,7 @@ export default function Home() {
   }, []);
 
   // ================================
-  // 📅 TODAY SPLIT
+  // TODAY SPLIT
   // ================================
   const today = new Date().toDateString();
 
@@ -94,7 +93,7 @@ export default function Home() {
   );
 
   // ================================
-  // 🧠 UNIQUE FILTER VALUES
+  // FILTER VALUES
   // ================================
   const symbols = useMemo(() => {
     const set = new Set();
@@ -115,7 +114,7 @@ export default function Home() {
   }, [active, history]);
 
   // ================================
-  // 🔍 FILTER FUNCTION
+  // FILTER APPLY
   // ================================
   const applyFilter = (list) => {
     return list.filter((t) => {
@@ -131,7 +130,24 @@ export default function Home() {
   const filteredHistory = applyFilter(oldHistory);
 
   // ================================
-  // 📊 STATS (filtered)
+  // 🔥 GROUPING FUNCTION
+  // ================================
+  const groupByStrategy = (list) => {
+    const map = {};
+    list.forEach((t) => {
+      const key = t.strategy || "default";
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    });
+    return map;
+  };
+
+  const groupedActive = groupByStrategy(filteredActive);
+  const groupedToday = groupByStrategy(filteredToday);
+  const groupedHistory = groupByStrategy(filteredHistory);
+
+  // ================================
+  // STATS
   // ================================
   const total = filteredHistory.length;
   const wins = filteredHistory.filter((t) => t.exitType === "TP").length;
@@ -145,7 +161,7 @@ export default function Home() {
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
-      {/* 🔥 FILTERS */}
+      {/* FILTERS */}
       <div style={styles.filters}>
         <Select label="Symbol" value={symbol} set={setSymbol} options={symbols} />
         <Select label="TF" value={tf} set={setTf} options={tfs} />
@@ -164,23 +180,35 @@ export default function Home() {
 
       {/* ACTIVE */}
       <h3 style={styles.section}>🟢 Active Trades</h3>
-      {filteredActive.length === 0 && <p>No active trades</p>}
-      {filteredActive.map((t) => (
-        <TradeCard key={t.id} t={t} />
+      {Object.entries(groupedActive).map(([key, trades]) => (
+        <div key={key}>
+          <h4 style={styles.groupTitle}>📦 {key}</h4>
+          {trades.map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))}
+        </div>
       ))}
 
       {/* TODAY */}
       <h3 style={styles.section}>🟡 Today Closed</h3>
-      {filteredToday.length === 0 && <p>No trades today</p>}
-      {filteredToday.map((t) => (
-        <TradeCard key={t.id} t={t} />
+      {Object.entries(groupedToday).map(([key, trades]) => (
+        <div key={key}>
+          <h4 style={styles.groupTitle}>📦 {key}</h4>
+          {trades.map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))}
+        </div>
       ))}
 
       {/* HISTORY */}
       <h3 style={styles.section}>📜 History</h3>
-      {filteredHistory.length === 0 && <p>No history</p>}
-      {filteredHistory.slice(0, 20).map((t) => (
-        <TradeCard key={t.id} t={t} />
+      {Object.entries(groupedHistory).map(([key, trades]) => (
+        <div key={key}>
+          <h4 style={styles.groupTitle}>📦 {key}</h4>
+          {trades.slice(0, 20).map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))}
+        </div>
       ))}
     </div>
   );
@@ -230,6 +258,12 @@ const styles = {
     padding: "6px",
     borderRadius: "8px",
     fontSize: "12px",
+  },
+
+  groupTitle: {
+    marginTop: "10px",
+    fontSize: "13px",
+    color: "#38bdf8",
   },
 
   title: { marginBottom: "10px" },

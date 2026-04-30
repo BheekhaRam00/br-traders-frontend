@@ -1,28 +1,30 @@
 // ==============================================
-// 🚀 FIREBASE MESSAGING SERVICE WORKER (FINAL)
+// 🚀 FIREBASE MESSAGING SERVICE WORKER (ENV SAFE)
 // ==============================================
 
 importScripts("https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js");
 
-// 🔥 IMPORTANT: REAL VALUES डालो
-firebase.initializeApp({
-  apiKey: "PASTE_REAL_API_KEY",
-  authDomain: "PASTE_REAL_AUTH_DOMAIN",
-  projectId: "PASTE_REAL_PROJECT_ID",
-  messagingSenderId: "PASTE_REAL_SENDER_ID",
-  appId: "PASTE_REAL_APP_ID",
-});
+// 🔐 BUILD-TIME ENV INJECTION (Vercel replaces this)
+const firebaseConfig = {
+  apiKey: "%%NEXT_PUBLIC_FIREBASE_API_KEY%%",
+  authDomain: "%%NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN%%",
+  projectId: "%%NEXT_PUBLIC_FIREBASE_PROJECT_ID%%",
+  messagingSenderId: "%%NEXT_PUBLIC_FIREBASE_SENDER_ID%%",
+  appId: "%%NEXT_PUBLIC_FIREBASE_APP_ID%%",
+};
+
+// 🔥 INIT
+firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
 // ==============================================
-// 🔔 BACKGROUND MESSAGE HANDLER
+// 🔔 BACKGROUND MESSAGE
 // ==============================================
 messaging.onBackgroundMessage(function (payload) {
   console.log("📩 FCM Background:", payload);
 
-  // ✅ fallback safe handling
   const title =
     payload?.notification?.title ||
     payload?.data?.title ||
@@ -36,8 +38,9 @@ messaging.onBackgroundMessage(function (payload) {
   const options = {
     body,
     icon: "/icon.png",
+    badge: "/icon.png",
     data: {
-      url: "/", // 👉 click पर redirect
+      url: payload?.data?.url || "/",
     },
   };
 
@@ -45,23 +48,23 @@ messaging.onBackgroundMessage(function (payload) {
 });
 
 // ==============================================
-// 🔥 CLICK ACTION (VERY IMPORTANT)
+// 🔥 CLICK ACTION
 // ==============================================
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
+  const url = event.notification?.data?.url || "/";
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // अगर app already open है → focus करो
         for (const client of clientList) {
-          if (client.url === "/" && "focus" in client) {
+          if (client.url.includes(url) && "focus" in client) {
             return client.focus();
           }
         }
-        // नहीं है → नया tab खोलो
         if (clients.openWindow) {
-          return clients.openWindow("/");
+          return clients.openWindow(url);
         }
       })
   );

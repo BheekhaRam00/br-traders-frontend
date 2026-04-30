@@ -1,12 +1,12 @@
 // ==============================
-// 📦 TRADE CARD (SSR SAFE FINAL)
+// 📦 TRADE CARD (HIGHLIGHT + LIVE)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
 
 export default function TradeCard({ t = {} }) {
   // ================================
-  // 🧠 SAFE NORMALIZATION
+  // 🧠 NORMALIZE
   // ================================
   const entry = Number(t.entry ?? t.entryPrice ?? 0);
   const exit = Number(t.exitPrice ?? 0);
@@ -27,7 +27,7 @@ export default function TradeCard({ t = {} }) {
   const isActive = !isClosed;
 
   // ================================
-  // 💰 PNL (SAFE)
+  // 💰 PNL
   // ================================
   let pnl = 0;
   try {
@@ -40,30 +40,33 @@ export default function TradeCard({ t = {} }) {
     pnl = 0;
   }
 
-  // ================================
-  // 🎨 STATUS
-  // ================================
-  const status = isClosed ? "CLOSED" : "ACTIVE";
-
-  const exitColor =
-    exitType === "TP"
-      ? "#00ff9f"
-      : exitType === "SL"
-      ? "#ff4d4d"
-      : "#9ca3af";
-
   const pnlColor = pnl >= 0 ? "#00ff9f" : "#ff4d4d";
 
   // ================================
-  // 🎯 UI
+  // 🔥 HIGHLIGHT FLAGS
+  // ================================
+  const isNew = t._new;
+  const isUpdated = t._updated;
+
+  // ================================
+  // 🎨 CARD STYLE (dynamic)
+  // ================================
+  const cardStyle = {
+    ...styles.card,
+    ...(isNew && styles.newGlow),
+    ...(isUpdated && styles.updateFlash),
+  };
+
+  // ================================
+  // UI
   // ================================
   return (
-    <div style={styles.card}>
+    <div style={cardStyle}>
       {/* HEADER */}
       <div style={styles.header}>
         <span style={styles.symbol}>{symbol}</span>
         <span style={styles.status(isActive)}>
-          {status}
+          {isClosed ? "CLOSED" : "ACTIVE"}
         </span>
       </div>
 
@@ -77,7 +80,7 @@ export default function TradeCard({ t = {} }) {
         {dir}
       </div>
 
-      {/* CORE DATA */}
+      {/* CORE */}
       <div style={styles.row}>
         <span>Entry</span>
         <span>{entry}</span>
@@ -100,9 +103,16 @@ export default function TradeCard({ t = {} }) {
 
       {/* ACTIVE */}
       {isActive && (
-        <div style={styles.activeBox}>
-          🟢 Trade Running
-        </div>
+        <>
+          <div style={styles.activeBox}>
+            🟢 Trade Running
+          </div>
+
+          {/* 🔥 LIVE PNL */}
+          <div style={{ ...styles.pnl, color: pnlColor }}>
+            ₹ {pnl}
+          </div>
+        </>
       )}
 
       {/* CLOSED */}
@@ -117,7 +127,14 @@ export default function TradeCard({ t = {} }) {
 
           <div style={styles.row}>
             <span>Result</span>
-            <span style={{ color: exitColor }}>
+            <span
+              style={{
+                color:
+                  exitType === "TP"
+                    ? "#00ff9f"
+                    : "#ff4d4d",
+              }}
+            >
               {exitType}
             </span>
           </div>
@@ -148,6 +165,17 @@ const styles = {
     marginBottom: "12px",
     borderRadius: "14px",
     border: "1px solid #1e293b",
+    transition: "all 0.3s ease",
+  },
+
+  // 🟢 NEW TRADE GLOW
+  newGlow: {
+    boxShadow: "0 0 12px #00ff9f",
+  },
+
+  // 🔄 UPDATE FLASH
+  updateFlash: {
+    boxShadow: "0 0 10px #38bdf8",
   },
 
   header: {

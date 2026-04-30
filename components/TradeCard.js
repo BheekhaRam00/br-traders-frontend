@@ -1,5 +1,5 @@
 // ==============================
-// 📦 TRADE CARD (PRO BUNDLE)
+// 📦 TRADE CARD (FINAL PRO MAX)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
@@ -35,32 +35,32 @@ export default function TradeCard({ t = {} }) {
     pnl = calcPnL({ ...t, entry, exitPrice: exit });
   } catch {}
 
-  const pnlColor = pnl >= 0 ? "#00ff9f" : "#ff4d4d";
-
   // ================================
-  // 📈 MOVE CALC (NEW)
+  // 📈 MOVE
   // ================================
   let move = 0;
-  let movePct = 0;
 
   if (entry && live) {
-    if (dir === "CALL") {
-      move = live - entry;
-    } else {
-      move = entry - live;
-    }
-    movePct = (move / entry) * 100;
+    move = dir === "CALL" ? live - entry : entry - live;
   }
 
-  const moveColor = move >= 0 ? "#00ff9f" : "#ff4d4d";
+  const movePct = entry ? (move / entry) * 100 : 0;
+
+  const isUp = move >= 0;
+  const moveColor = isUp ? "#00ff9f" : "#ff4d4d";
+  const arrow = isUp ? "⬆️" : "⬇️";
 
   // ================================
-  // 🎯 PROBABILITY
+  // 🎯 PROBABILITY SCALE
   // ================================
   const prob = Math.max(0, Math.min(100, t.probability ?? 50));
 
+  let probColor = "#ff4d4d";
+  if (prob > 70) probColor = "#00ff9f";
+  else if (prob > 40) probColor = "#facc15";
+
   // ================================
-  // 🏷️ STATUS BADGE
+  // 🏷️ BADGE
   // ================================
   let badge = styles.activeBadge;
 
@@ -71,7 +71,7 @@ export default function TradeCard({ t = {} }) {
   }
 
   // ================================
-  // 🎯 DIRECTION
+  // 🎯 DIR
   // ================================
   const isCall = dir === "CALL";
   const isPut = dir === "PUT";
@@ -125,12 +125,22 @@ export default function TradeCard({ t = {} }) {
         <span>{entry}</span>
       </div>
 
-      <div style={styles.row}>
+      <div
+        style={{
+          ...styles.row,
+          ...(exitType === "SL" && styles.hitSL),
+        }}
+      >
         <span>SL</span>
         <span>{sl}</span>
       </div>
 
-      <div style={styles.row}>
+      <div
+        style={{
+          ...styles.row,
+          ...(exitType === "TP" && styles.hitTP),
+        }}
+      >
         <span>TP</span>
         <span>{tp}</span>
       </div>
@@ -140,20 +150,20 @@ export default function TradeCard({ t = {} }) {
         <span>{rr}</span>
       </div>
 
-      {/* 🔥 MOVE */}
+      {/* MOVE */}
       {isActive && (
         <div style={styles.row}>
           <span>Move</span>
           <span style={{ color: moveColor }}>
-            {move.toFixed(2)} ({movePct.toFixed(2)}%)
+            {arrow} {move.toFixed(2)} ({movePct.toFixed(2)}%)
           </span>
         </div>
       )}
 
-      {/* 🎯 PROBABILITY */}
+      {/* PROBABILITY */}
       {isActive && (
         <div style={styles.probBox}>
-          <div style={styles.probText}>
+          <div style={{ ...styles.probText, color: probColor }}>
             Prob: {prob}%
           </div>
           <div style={styles.probBar}>
@@ -161,6 +171,7 @@ export default function TradeCard({ t = {} }) {
               style={{
                 ...styles.probFill,
                 width: `${prob}%`,
+                background: probColor,
               }}
             />
           </div>
@@ -171,7 +182,7 @@ export default function TradeCard({ t = {} }) {
       {isActive && (
         <>
           <div style={styles.activeBox}>
-            🟢 Trade Running
+            🟢 Running
           </div>
 
           <div style={{ ...styles.pnl, color: moveColor }}>
@@ -197,7 +208,12 @@ export default function TradeCard({ t = {} }) {
             </span>
           </div>
 
-          <div style={{ ...styles.pnl, color: pnlColor }}>
+          <div
+            style={{
+              ...styles.pnl,
+              color: pnl >= 0 ? "#00ff9f" : "#ff4d4d",
+            }}
+          >
             ₹ {pnl}
           </div>
         </>
@@ -231,11 +247,8 @@ const styles = {
     justifyContent: "space-between",
   },
 
-  symbol: {
-    fontWeight: "bold",
-  },
+  symbol: { fontWeight: "bold" },
 
-  // 🔥 BADGES
   activeBadge: {
     background: "#064e3b",
     color: "#00ff9f",
@@ -278,6 +291,7 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     fontSize: "12px",
+    marginTop: "2px",
   },
 
   pnl: {
@@ -309,7 +323,6 @@ const styles = {
 
   probFill: {
     height: "6px",
-    background: "#00ff9f",
     borderRadius: "4px",
   },
 
@@ -317,5 +330,15 @@ const styles = {
     height: "1px",
     background: "#1f2937",
     margin: "6px 0",
+  },
+
+  hitTP: {
+    background: "#022c22",
+    borderRadius: "4px",
+  },
+
+  hitSL: {
+    background: "#3b0a0a",
+    borderRadius: "4px",
   },
 };

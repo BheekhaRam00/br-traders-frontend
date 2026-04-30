@@ -1,70 +1,83 @@
 // ==============================
-// 📦 TRADE CARD (PRODUCTION UPGRADE)
+// 📦 TRADE CARD (SSR SAFE FINAL)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
 
-export default function TradeCard({ t }) {
+export default function TradeCard({ t = {} }) {
   // ================================
-  // 🧠 NORMALIZE (BACKEND SAFE)
+  // 🧠 SAFE NORMALIZATION
   // ================================
-  const entry = t.entry || t.entryPrice || 0;
-  const exit = t.exitPrice || 0;
+  const entry = Number(t.entry ?? t.entryPrice ?? 0);
+  const exit = Number(t.exitPrice ?? 0);
 
-  const pnl = calcPnL({
-    ...t,
-    entry,
-    exitPrice: exit,
-  });
+  const sl = t.sl ?? "-";
+  const tp = t.tp ?? "-";
+  const rr = t.rr ?? "-";
 
-  const isClosed = t.exitType ? true : false;
+  const symbol = t.symbol || "N/A";
+  const strategy = t.strategy || "default";
+  const tf = t.tf || "-";
+  const dir = t.dir || "-";
+
+  const exitType = t.exitType || null;
+  const exitTime = t.exitTime || null;
+
+  const isClosed = !!exitType;
   const isActive = !isClosed;
 
   // ================================
-  // 🎯 STATUS LOGIC (SAFE)
+  // 💰 PNL (SAFE)
+  // ================================
+  let pnl = 0;
+  try {
+    pnl = calcPnL({
+      ...t,
+      entry,
+      exitPrice: exit,
+    });
+  } catch {
+    pnl = 0;
+  }
+
+  // ================================
+  // 🎨 STATUS
   // ================================
   const status = isClosed ? "CLOSED" : "ACTIVE";
 
-  // ================================
-  // 🎨 EXIT TYPE COLOR
-  // ================================
   const exitColor =
-    t.exitType === "TP"
+    exitType === "TP"
       ? "#00ff9f"
-      : t.exitType === "SL"
+      : exitType === "SL"
       ? "#ff4d4d"
       : "#9ca3af";
 
+  const pnlColor = pnl >= 0 ? "#00ff9f" : "#ff4d4d";
+
+  // ================================
+  // 🎯 UI
+  // ================================
   return (
     <div style={styles.card}>
-      {/* ============================= */}
       {/* HEADER */}
-      {/* ============================= */}
       <div style={styles.header}>
-        <span style={styles.symbol}>{t.symbol || "N/A"}</span>
-
-        <span style={styles.status(isActive, isClosed)}>
+        <span style={styles.symbol}>{symbol}</span>
+        <span style={styles.status(isActive)}>
           {status}
         </span>
       </div>
 
-      {/* ============================= */}
-      {/* STRATEGY + TF */}
-      {/* ============================= */}
+      {/* STRATEGY */}
       <div style={styles.sub}>
-        {t.strategy || "default"} | {t.tf || "-"}
+        {strategy} | {tf}
       </div>
 
-      {/* ============================= */}
       {/* DIRECTION */}
-      {/* ============================= */}
-      <div style={styles.dir(t.dir)}>
-        {t.dir || "-"}
+      <div style={styles.dir(dir)}>
+        {dir}
       </div>
 
-      {/* ============================= */}
       {/* CORE DATA */}
-      {/* ============================= */}
       <div style={styles.row}>
         <span>Entry</span>
         <span>{entry}</span>
@@ -72,33 +85,27 @@ export default function TradeCard({ t }) {
 
       <div style={styles.row}>
         <span>SL</span>
-        <span>{t.sl || "-"}</span>
+        <span>{sl}</span>
       </div>
 
       <div style={styles.row}>
         <span>TP</span>
-        <span>{t.tp || "-"}</span>
+        <span>{tp}</span>
       </div>
 
       <div style={styles.row}>
         <span>RR</span>
-        <span>{t.rr || "-"}</span>
+        <span>{rr}</span>
       </div>
 
-      {/* ============================= */}
-      {/* ACTIVE INFO */}
-      {/* ============================= */}
+      {/* ACTIVE */}
       {isActive && (
-        <>
-          <div style={styles.activeBox}>
-            🟢 Trade Running
-          </div>
-        </>
+        <div style={styles.activeBox}>
+          🟢 Trade Running
+        </div>
       )}
 
-      {/* ============================= */}
-      {/* CLOSED INFO */}
-      {/* ============================= */}
+      {/* CLOSED */}
       {isClosed && (
         <>
           <div style={styles.divider} />
@@ -111,21 +118,18 @@ export default function TradeCard({ t }) {
           <div style={styles.row}>
             <span>Result</span>
             <span style={{ color: exitColor }}>
-              {t.exitType}
+              {exitType}
             </span>
           </div>
 
           <div style={styles.row}>
             <span>Time</span>
-            <span>{formatTime(t.exitTime)}</span>
+            <span>
+              {exitTime ? formatTime(exitTime) : "-"}
+            </span>
           </div>
 
-          <div
-            style={{
-              ...styles.pnl,
-              color: pnl >= 0 ? "#00ff9f" : "#ff4d4d",
-            }}
-          >
+          <div style={{ ...styles.pnl, color: pnlColor }}>
             ₹ {pnl}
           </div>
         </>
@@ -135,7 +139,7 @@ export default function TradeCard({ t }) {
 }
 
 // ==============================
-// 🎨 STYLES (CLEAN + TRADING UI)
+// 🎨 STYLES
 // ==============================
 const styles = {
   card: {
@@ -155,10 +159,9 @@ const styles = {
   symbol: {
     fontWeight: "bold",
     fontSize: "14px",
-    letterSpacing: "0.3px",
   },
 
-  status: (active, closed) => ({
+  status: (active) => ({
     fontSize: "11px",
     padding: "3px 8px",
     borderRadius: "6px",

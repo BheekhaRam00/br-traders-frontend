@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD WITH TODAY BUFFER + LIVE UPDATE
+// 🚀 DASHBOARD WITH TODAY STATS + LIVE UPDATE
 // ==============================================
 
 import { useEffect, useState, useRef } from "react";
@@ -16,11 +16,10 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 NEW: previous active tracking
   const prevActiveRef = useRef([]);
 
   // ================================
-  // FETCH + LIVE UPDATE DETECTION
+  // FETCH + LIVE UPDATE
   // ================================
   const loadData = async () => {
     try {
@@ -31,16 +30,11 @@ export default function Home() {
 
       const prev = prevActiveRef.current;
 
-      // 🔥 detect new + updated trades
       const processed = (a || []).map((t) => {
         const old = prev.find((p) => p.id === t.id);
 
-        // 🆕 new trade
-        if (!old) {
-          return { ...t, _new: true };
-        }
+        if (!old) return { ...t, _new: true };
 
-        // 🔄 updated trade (price / probability change)
         if (
           old.entryPrice !== t.entryPrice ||
           old.probability !== t.probability
@@ -62,9 +56,6 @@ export default function Home() {
     }
   };
 
-  // ================================
-  // AUTO REFRESH
-  // ================================
   useEffect(() => {
     let running = false;
 
@@ -76,7 +67,6 @@ export default function Home() {
     };
 
     safeLoad();
-
     const i = setInterval(safeLoad, 2000);
     return () => clearInterval(i);
   }, []);
@@ -99,22 +89,34 @@ export default function Home() {
   );
 
   // ================================
-  // 📊 STATS
+  // 📊 TOTAL STATS
   // ================================
   const total = history.length;
+  const wins = history.filter((t) => t.exitType === "TP").length;
+  const losses = history.filter((t) => t.exitType === "SL").length;
+  const pnl = history.reduce((s, t) => s + calcPnL(t), 0);
 
-  const wins = history.filter(
+  // ================================
+  // 🔥 TODAY STATS (NEW)
+  // ================================
+  const todayTotal = todayTrades.length;
+
+  const todayWins = todayTrades.filter(
     (t) => t.exitType === "TP"
   ).length;
 
-  const losses = history.filter(
+  const todayLoss = todayTrades.filter(
     (t) => t.exitType === "SL"
   ).length;
 
-  const pnl = history.reduce(
-    (sum, t) => sum + calcPnL(t),
+  const todayPnL = todayTrades.reduce(
+    (s, t) => s + calcPnL(t),
     0
   );
+
+  const todayWinrate = todayTotal
+    ? ((todayWins / todayTotal) * 100).toFixed(1)
+    : 0;
 
   // ================================
   // UI
@@ -123,12 +125,24 @@ export default function Home() {
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
-      {/* STATS */}
+      {/* TOTAL STATS */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
         <Stat label="Wins" value={wins} />
         <Stat label="Loss" value={losses} />
         <Stat label="PnL" value={pnl.toFixed(2)} />
+      </div>
+
+      {/* 🔥 TODAY PANEL */}
+      <div style={styles.todayBox}>
+        <h4>📅 Today Performance</h4>
+        <div style={styles.stats}>
+          <Stat label="Trades" value={todayTotal} />
+          <Stat label="Wins" value={todayWins} />
+          <Stat label="Loss" value={todayLoss} />
+          <Stat label="Win %" value={todayWinrate} />
+          <Stat label="PnL" value={todayPnL.toFixed(2)} />
+        </div>
       </div>
 
       {loading && <p>Loading...</p>}
@@ -177,7 +191,9 @@ const styles = {
   },
   title: { marginBottom: "15px" },
   section: { marginTop: "20px" },
-  stats: { display: "flex", gap: "10px" },
+
+  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
+
   statBox: {
     background: "#111827",
     padding: "10px",
@@ -185,6 +201,16 @@ const styles = {
     flex: 1,
     textAlign: "center",
   },
+
   statValue: { fontWeight: "bold" },
   statLabel: { fontSize: "12px", color: "#9ca3af" },
+
+  // 🔥 NEW STYLE
+  todayBox: {
+    marginTop: "15px",
+    padding: "12px",
+    background: "#0f172a",
+    border: "1px solid #1e293b",
+    borderRadius: "12px",
+  },
 };

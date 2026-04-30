@@ -1,5 +1,5 @@
 // ==============================
-// 📦 TRADE CARD (BADGES UPGRADE)
+// 📦 TRADE CARD (PRO BUNDLE)
 // ==============================
 
 import { calcPnL, formatTime } from "../lib/utils";
@@ -9,6 +9,7 @@ export default function TradeCard({ t = {} }) {
   // 🧠 NORMALIZE
   // ================================
   const entry = Number(t.entry ?? t.entryPrice ?? 0);
+  const live = Number(t.entryPrice ?? entry);
   const exit = Number(t.exitPrice ?? 0);
 
   const sl = t.sl ?? "-";
@@ -31,46 +32,52 @@ export default function TradeCard({ t = {} }) {
   // ================================
   let pnl = 0;
   try {
-    pnl = calcPnL({
-      ...t,
-      entry,
-      exitPrice: exit,
-    });
-  } catch {
-    pnl = 0;
-  }
+    pnl = calcPnL({ ...t, entry, exitPrice: exit });
+  } catch {}
 
   const pnlColor = pnl >= 0 ? "#00ff9f" : "#ff4d4d";
 
   // ================================
-  // 🎯 DIRECTION COLORS
+  // 📈 MOVE CALC (NEW)
+  // ================================
+  let move = 0;
+  let movePct = 0;
+
+  if (entry && live) {
+    if (dir === "CALL") {
+      move = live - entry;
+    } else {
+      move = entry - live;
+    }
+    movePct = (move / entry) * 100;
+  }
+
+  const moveColor = move >= 0 ? "#00ff9f" : "#ff4d4d";
+
+  // ================================
+  // 🎯 PROBABILITY
+  // ================================
+  const prob = Math.max(0, Math.min(100, t.probability ?? 50));
+
+  // ================================
+  // 🏷️ STATUS BADGE
+  // ================================
+  let badge = styles.activeBadge;
+
+  if (isClosed) {
+    if (exitType === "TP") badge = styles.winBadge;
+    else if (exitType === "SL") badge = styles.lossBadge;
+    else badge = styles.closedBadge;
+  }
+
+  // ================================
+  // 🎯 DIRECTION
   // ================================
   const isCall = dir === "CALL";
   const isPut = dir === "PUT";
 
-  // ================================
-  // 🔥 FLAGS
-  // ================================
   const isNew = t._new;
   const isUpdated = t._updated;
-
-  // ================================
-  // 🏷️ STATUS BADGE (NEW)
-  // ================================
-  let badge = {
-    text: "ACTIVE",
-    style: styles.activeBadge,
-  };
-
-  if (isClosed) {
-    if (exitType === "TP") {
-      badge = { text: "WIN", style: styles.winBadge };
-    } else if (exitType === "SL") {
-      badge = { text: "LOSS", style: styles.lossBadge };
-    } else {
-      badge = { text: "CLOSED", style: styles.closedBadge };
-    }
-  }
 
   // ================================
   // 🎨 CARD STYLE
@@ -79,25 +86,13 @@ export default function TradeCard({ t = {} }) {
     ...styles.card,
 
     ...(isActive &&
-      (isCall
-        ? styles.callBg
-        : isPut
-        ? styles.putBg
-        : {})),
+      (isCall ? styles.callBg : isPut ? styles.putBg : {})),
 
     ...(isNew &&
-      (isCall
-        ? styles.callGlow
-        : isPut
-        ? styles.putGlow
-        : {})),
+      (isCall ? styles.callGlow : isPut ? styles.putGlow : {})),
 
     ...(isUpdated &&
-      (isCall
-        ? styles.callFlash
-        : isPut
-        ? styles.putFlash
-        : {})),
+      (isCall ? styles.callFlash : isPut ? styles.putFlash : {})),
   };
 
   return (
@@ -105,9 +100,15 @@ export default function TradeCard({ t = {} }) {
       {/* HEADER */}
       <div style={styles.header}>
         <span style={styles.symbol}>{symbol}</span>
-
-        {/* 🔥 NEW BADGE */}
-        <span style={badge.style}>{badge.text}</span>
+        <span style={badge}>
+          {isClosed
+            ? exitType === "TP"
+              ? "WIN"
+              : exitType === "SL"
+              ? "LOSS"
+              : "CLOSED"
+            : "ACTIVE"}
+        </span>
       </div>
 
       {/* STRATEGY */}
@@ -115,10 +116,8 @@ export default function TradeCard({ t = {} }) {
         {strategy} | {tf}
       </div>
 
-      {/* DIRECTION */}
-      <div style={styles.dir(dir)}>
-        {dir}
-      </div>
+      {/* DIR */}
+      <div style={styles.dir(dir)}>{dir}</div>
 
       {/* CORE */}
       <div style={styles.row}>
@@ -141,6 +140,33 @@ export default function TradeCard({ t = {} }) {
         <span>{rr}</span>
       </div>
 
+      {/* 🔥 MOVE */}
+      {isActive && (
+        <div style={styles.row}>
+          <span>Move</span>
+          <span style={{ color: moveColor }}>
+            {move.toFixed(2)} ({movePct.toFixed(2)}%)
+          </span>
+        </div>
+      )}
+
+      {/* 🎯 PROBABILITY */}
+      {isActive && (
+        <div style={styles.probBox}>
+          <div style={styles.probText}>
+            Prob: {prob}%
+          </div>
+          <div style={styles.probBar}>
+            <div
+              style={{
+                ...styles.probFill,
+                width: `${prob}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ACTIVE */}
       {isActive && (
         <>
@@ -148,8 +174,8 @@ export default function TradeCard({ t = {} }) {
             🟢 Trade Running
           </div>
 
-          <div style={{ ...styles.pnl, color: pnlColor }}>
-            ₹ {pnl}
+          <div style={{ ...styles.pnl, color: moveColor }}>
+            ₹ {move.toFixed(2)}
           </div>
         </>
       )}
@@ -162,13 +188,6 @@ export default function TradeCard({ t = {} }) {
           <div style={styles.row}>
             <span>Exit</span>
             <span>{exit}</span>
-          </div>
-
-          <div style={styles.row}>
-            <span>Result</span>
-            <span style={{ color: pnlColor }}>
-              {exitType}
-            </span>
           </div>
 
           <div style={styles.row}>
@@ -197,14 +216,11 @@ const styles = {
     marginBottom: "12px",
     borderRadius: "14px",
     border: "1px solid #1e293b",
-    transition: "all 0.3s ease",
   },
 
-  // 🎯 ACTIVE BACKGROUND
   callBg: { background: "#052e1b" },
   putBg: { background: "#3b0a0a" },
 
-  // 🔥 EFFECTS
   callGlow: { boxShadow: "0 0 14px #00ff9f" },
   putGlow: { boxShadow: "0 0 14px #ff4d4d" },
   callFlash: { boxShadow: "0 0 10px #00ff9f" },
@@ -213,28 +229,23 @@ const styles = {
   header: {
     display: "flex",
     justifyContent: "space-between",
-    marginBottom: "6px",
   },
 
   symbol: {
     fontWeight: "bold",
-    fontSize: "14px",
   },
 
   // 🔥 BADGES
   activeBadge: {
     background: "#064e3b",
     color: "#00ff9f",
-    fontSize: "11px",
     padding: "4px 8px",
     borderRadius: "6px",
-    animation: "pulse 1.5s infinite",
   },
 
   winBadge: {
     background: "#022c22",
     color: "#00ff9f",
-    fontSize: "11px",
     padding: "4px 8px",
     borderRadius: "6px",
   },
@@ -242,7 +253,6 @@ const styles = {
   lossBadge: {
     background: "#3b0a0a",
     color: "#ff4d4d",
-    fontSize: "11px",
     padding: "4px 8px",
     borderRadius: "6px",
   },
@@ -250,7 +260,6 @@ const styles = {
   closedBadge: {
     background: "#1f2937",
     color: "#9ca3af",
-    fontSize: "11px",
     padding: "4px 8px",
     borderRadius: "6px",
   },
@@ -258,42 +267,55 @@ const styles = {
   sub: {
     fontSize: "11px",
     color: "#9ca3af",
-    marginBottom: "6px",
   },
 
   dir: (d) => ({
-    fontSize: "13px",
     fontWeight: "bold",
     color: d === "CALL" ? "#00ff9f" : "#ff4d4d",
-    marginBottom: "6px",
   }),
 
   row: {
     display: "flex",
     justifyContent: "space-between",
     fontSize: "12px",
-    marginBottom: "4px",
   },
 
   pnl: {
     marginTop: "8px",
     fontWeight: "bold",
-    fontSize: "15px",
   },
 
   activeBox: {
-    marginTop: "8px",
+    marginTop: "6px",
+    textAlign: "center",
     fontSize: "12px",
     color: "#00ff9f",
-    background: "#022c22",
-    padding: "6px",
-    borderRadius: "6px",
-    textAlign: "center",
+  },
+
+  probBox: {
+    marginTop: "6px",
+  },
+
+  probText: {
+    fontSize: "11px",
+    marginBottom: "2px",
+  },
+
+  probBar: {
+    height: "6px",
+    background: "#1f2937",
+    borderRadius: "4px",
+  },
+
+  probFill: {
+    height: "6px",
+    background: "#00ff9f",
+    borderRadius: "4px",
   },
 
   divider: {
     height: "1px",
     background: "#1f2937",
-    margin: "8px 0",
+    margin: "6px 0",
   },
 };

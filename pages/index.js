@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD (CLEAN PRO UI REBUILD)
+// 🚀 DASHBOARD (MODERN UI UPGRADE)
 // ==============================================
 
 import { useEffect, useState, useRef } from "react";
@@ -19,7 +19,7 @@ export default function Home() {
   const prevHistoryRef = useRef([]);
 
   // ================================
-  // 🔊 SOUND (SAFE)
+  // 🔊 SOUND
   // ================================
   const playSound = (type) => {
     try {
@@ -42,12 +42,9 @@ export default function Home() {
         getHistory(),
       ]);
 
-      // 🔊 detect new close
       h.forEach((t) => {
         const old = prevHistoryRef.current.find((p) => p.id === t.id);
-        if (!old && t.exitType) {
-          playSound(t.exitType);
-        }
+        if (!old && t.exitType) playSound(t.exitType);
       });
 
       prevHistoryRef.current = h || [];
@@ -61,9 +58,6 @@ export default function Home() {
     }
   };
 
-  // ================================
-  // AUTO REFRESH (NO SCROLL JUMP)
-  // ================================
   useEffect(() => {
     loadData();
     const i = setInterval(loadData, 3000);
@@ -71,7 +65,7 @@ export default function Home() {
   }, []);
 
   // ================================
-  // TODAY SPLIT (FIXED)
+  // TODAY SPLIT
   // ================================
   const today = new Date().toDateString();
 
@@ -93,12 +87,11 @@ export default function Home() {
   );
 
   // ================================
-  // 📊 STATS (CLEAN)
+  // STATS
   // ================================
   const total = history.length;
   const wins = history.filter((t) => t.exitType === "TP").length;
   const pnl = history.reduce((s, t) => s + calcPnL(t), 0);
-
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
@@ -107,52 +100,71 @@ export default function Home() {
   return (
     <div className="container">
 
-      {/* HEADER */}
-      <div className="sticky">
-        <h2>🚀 BR Traders</h2>
-
-        {/* STATS */}
-        <div className="stats">
-          <Stat label="Trades" value={total} />
-          <Stat label="Win %" value={winrate} />
-          <Stat label="PnL" value={pnl.toFixed(2)} />
-        </div>
+      {/* 🔥 HEADER */}
+      <div style={styles.header}>
+        🚀 BR Traders
       </div>
 
-      {loading && <p>Loading...</p>}
+      {/* 📊 STATS */}
+      <div className="stats">
+        <Stat label="Trades" value={total} />
+        <Stat label="Win %" value={winrate} />
+        <Stat label="PnL" value={pnl.toFixed(2)} />
+      </div>
+
+      {loading && <p style={{ textAlign: "center" }}>Loading...</p>}
 
       {/* ============================= */}
       {/* 🟢 ACTIVE */}
       {/* ============================= */}
-      <h3>🟢 Active Trades</h3>
-
-      {active.length === 0 && <p>No active trades</p>}
-
-      {active.map((t) => (
-        <TradeCard key={t.id} t={t} />
-      ))}
+      <Section title="🟢 Active Trades">
+        {active.length === 0 ? (
+          <Empty text="No active trades" />
+        ) : (
+          active.map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))
+        )}
+      </Section>
 
       {/* ============================= */}
-      {/* 🟡 TODAY CLOSED */}
+      {/* 🟡 TODAY */}
       {/* ============================= */}
-      <h3>🟡 Today Closed</h3>
-
-      {todayTrades.length === 0 && <p>No trades today</p>}
-
-      {todayTrades.map((t) => (
-        <TradeCard key={t.id} t={t} />
-      ))}
+      <Section title="🟡 Today Closed">
+        {todayTrades.length === 0 ? (
+          <Empty text="No trades today" />
+        ) : (
+          todayTrades.map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))
+        )}
+      </Section>
 
       {/* ============================= */}
       {/* 📜 HISTORY */}
       {/* ============================= */}
-      <h3>📜 History</h3>
+      <Section title="📜 History">
+        {sortedHistory.length === 0 ? (
+          <Empty text="No history" />
+        ) : (
+          sortedHistory.slice(0, 20).map((t) => (
+            <TradeCard key={t.id} t={t} />
+          ))
+        )}
+      </Section>
 
-      {sortedHistory.length === 0 && <p>No history</p>}
+    </div>
+  );
+}
 
-      {sortedHistory.slice(0, 20).map((t) => (
-        <TradeCard key={t.id} t={t} />
-      ))}
+// ================================
+// 🔥 SECTION WRAPPER
+// ================================
+function Section({ title, children }) {
+  return (
+    <div style={styles.sectionCard}>
+      <h3 style={styles.sectionTitle}>{title}</h3>
+      {children}
     </div>
   );
 }
@@ -168,3 +180,53 @@ function Stat({ label, value }) {
     </div>
   );
 }
+
+// ================================
+// EMPTY STATE
+// ================================
+function Empty({ text }) {
+  return (
+    <div style={styles.empty}>
+      {text}
+    </div>
+  );
+}
+
+// ================================
+// 🎨 STYLES
+// ================================
+const styles = {
+
+  header: {
+    textAlign: "center",
+    fontSize: "24px",
+    fontWeight: "700",
+    marginBottom: "15px",
+    background: "linear-gradient(90deg,#00ff9f,#38bdf8)",
+    WebkitBackgroundClip: "text",
+    color: "transparent",
+  },
+
+  sectionCard: {
+    marginTop: "18px",
+    padding: "12px",
+    borderRadius: "12px",
+    background: "#0f172a",
+    border: "1px solid #1f2937",
+  },
+
+  sectionTitle: {
+    textAlign: "center",
+    marginBottom: "10px",
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "#9ca3af",
+  },
+
+  empty: {
+    textAlign: "center",
+    fontSize: "13px",
+    color: "#6b7280",
+    padding: "10px",
+  },
+};

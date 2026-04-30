@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD + LIVE UPDATE + FILTERS + GROUPING
+// 🚀 DASHBOARD + INTELLIGENCE (PHASE 3)
 // ==============================================
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -23,7 +23,7 @@ export default function Home() {
   const prevActiveRef = useRef([]);
 
   // ================================
-  // FETCH + LIVE UPDATE
+  // FETCH
   // ================================
   const loadData = async () => {
     try {
@@ -93,6 +93,22 @@ export default function Home() {
   );
 
   // ================================
+  // SORT (NEW)
+  // ================================
+  const sortedHistory = [...oldHistory].sort(
+    (a, b) =>
+      new Date(b.exitTime || 0) - new Date(a.exitTime || 0)
+  );
+
+  const recentTrades = [...history]
+    .filter((t) => t.exitTime)
+    .sort(
+      (a, b) =>
+        new Date(b.exitTime) - new Date(a.exitTime)
+    )
+    .slice(0, 5);
+
+  // ================================
   // FILTER VALUES
   // ================================
   const symbols = useMemo(() => {
@@ -113,9 +129,6 @@ export default function Home() {
     return ["ALL", ...Array.from(set)];
   }, [active, history]);
 
-  // ================================
-  // FILTER APPLY
-  // ================================
   const applyFilter = (list) => {
     return list.filter((t) => {
       if (symbol !== "ALL" && t.symbol !== symbol) return false;
@@ -127,10 +140,10 @@ export default function Home() {
 
   const filteredActive = applyFilter(active);
   const filteredToday = applyFilter(todayTrades);
-  const filteredHistory = applyFilter(oldHistory);
+  const filteredHistory = applyFilter(sortedHistory);
 
   // ================================
-  // 🔥 GROUPING FUNCTION
+  // GROUPING
   // ================================
   const groupByStrategy = (list) => {
     const map = {};
@@ -147,12 +160,25 @@ export default function Home() {
   const groupedHistory = groupByStrategy(filteredHistory);
 
   // ================================
-  // STATS
+  // 📊 STATS
   // ================================
   const total = filteredHistory.length;
   const wins = filteredHistory.filter((t) => t.exitType === "TP").length;
   const losses = filteredHistory.filter((t) => t.exitType === "SL").length;
   const pnl = filteredHistory.reduce((s, t) => s + calcPnL(t), 0);
+
+  const winrate = total
+    ? ((wins / total) * 100).toFixed(1)
+    : 0;
+
+  // 🔥 TODAY STATS
+  const todayTotal = filteredToday.length;
+  const todayWins = filteredToday.filter((t) => t.exitType === "TP").length;
+  const todayPnL = filteredToday.reduce((s, t) => s + calcPnL(t), 0);
+
+  const todayWinrate = todayTotal
+    ? ((todayWins / todayTotal) * 100).toFixed(1)
+    : 0;
 
   // ================================
   // UI
@@ -168,18 +194,39 @@ export default function Home() {
         <Select label="Strategy" value={strategy} set={setStrategy} options={strategies} />
       </div>
 
-      {/* STATS */}
+      {/* TOTAL STATS */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
         <Stat label="Wins" value={wins} />
         <Stat label="Loss" value={losses} />
+        <Stat label="Win %" value={winrate} />
         <Stat label="PnL" value={pnl.toFixed(2)} />
+      </div>
+
+      {/* 🔥 TODAY PANEL */}
+      <div style={styles.todayBox}>
+        <h4>📅 Today Performance</h4>
+        <div style={styles.stats}>
+          <Stat label="Trades" value={todayTotal} />
+          <Stat label="Win %" value={todayWinrate} />
+          <Stat label="PnL" value={todayPnL.toFixed(2)} />
+        </div>
+      </div>
+
+      {/* 🔥 RECENT ACTIVITY */}
+      <div style={styles.activityBox}>
+        <h4>🕒 Recent Activity</h4>
+        {recentTrades.map((t) => (
+          <div key={t.id} style={styles.activityItem}>
+            {t.symbol} • {t.exitType} • ₹{calcPnL(t)}
+          </div>
+        ))}
       </div>
 
       {loading && <p>Loading...</p>}
 
       {/* ACTIVE */}
-      <h3 style={styles.section}>🟢 Active Trades</h3>
+      <h3 style={styles.section}>🟢 Active Trades ({filteredActive.length})</h3>
       {Object.entries(groupedActive).map(([key, trades]) => (
         <div key={key}>
           <h4 style={styles.groupTitle}>📦 {key}</h4>
@@ -246,11 +293,25 @@ const styles = {
     color: "white",
   },
 
-  filters: {
-    display: "flex",
-    gap: "10px",
-    marginBottom: "10px",
-    flexWrap: "wrap",
+  filters: { display: "flex", gap: "10px", marginBottom: "10px", flexWrap: "wrap" },
+
+  todayBox: {
+    marginTop: "15px",
+    padding: "10px",
+    background: "#0f172a",
+    borderRadius: "10px",
+  },
+
+  activityBox: {
+    marginTop: "15px",
+    padding: "10px",
+    background: "#111827",
+    borderRadius: "10px",
+  },
+
+  activityItem: {
+    fontSize: "12px",
+    marginBottom: "4px",
   },
 
   selectBox: {
@@ -269,7 +330,7 @@ const styles = {
   title: { marginBottom: "10px" },
   section: { marginTop: "20px" },
 
-  stats: { display: "flex", gap: "10px" },
+  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
 
   statBox: {
     background: "#111827",

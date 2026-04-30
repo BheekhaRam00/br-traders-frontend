@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 MAIN DASHBOARD (SSR SAFE FINAL)
+// 🚀 DASHBOARD WITH TODAY BUFFER
 // ==============================================
 
 import { useEffect, useState } from "react";
@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
 
-// ✅ TradeCard SSR safe load
 const TradeCard = dynamic(() => import("../components/TradeCard"), {
   ssr: false,
 });
@@ -16,12 +15,12 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
+  // ================================
+  // FETCH
+  // ================================
   const loadData = async () => {
     try {
-      setError("");
-
       const [a, h] = await Promise.all([
         getActiveTrades(),
         getHistory(),
@@ -30,8 +29,7 @@ export default function Home() {
       setActive(a || []);
       setHistory(h || []);
     } catch (err) {
-      console.log("❌ load error:", err.message);
-      setError("Failed to load data");
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -49,43 +47,53 @@ export default function Home() {
 
     safeLoad();
 
-    const interval = setInterval(() => {
-      safeLoad();
-    }, 2000);
-
-    return () => clearInterval(interval);
+    const i = setInterval(safeLoad, 2000);
+    return () => clearInterval(i);
   }, []);
 
   // ================================
-  // SORT
+  // 📅 TODAY FILTER
   // ================================
-  const sortedHistory = [...history].sort(
-    (a, b) =>
-      new Date(b.exitTime || 0) - new Date(a.exitTime || 0)
+  const today = new Date().toDateString();
+
+  const todayTrades = history.filter(
+    (t) =>
+      t.exitTime &&
+      new Date(t.exitTime).toDateString() === today
+  );
+
+  const oldHistory = history.filter(
+    (t) =>
+      !t.exitTime ||
+      new Date(t.exitTime).toDateString() !== today
   );
 
   // ================================
-  // STATS
+  // 📊 STATS (only history)
   // ================================
-  const total = sortedHistory.length;
+  const total = history.length;
 
-  const wins = sortedHistory.filter(
+  const wins = history.filter(
     (t) => t.exitType === "TP"
   ).length;
 
-  const losses = sortedHistory.filter(
+  const losses = history.filter(
     (t) => t.exitType === "SL"
   ).length;
 
-  const pnl = sortedHistory.reduce(
+  const pnl = history.reduce(
     (sum, t) => sum + calcPnL(t),
     0
   );
 
+  // ================================
+  // UI
+  // ================================
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>🚀 BR Traders Dashboard</h2>
 
+      {/* STATS */}
       <div style={styles.stats}>
         <Stat label="Trades" value={total} />
         <Stat label="Wins" value={wins} />
@@ -93,29 +101,26 @@ export default function Home() {
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
-
       {loading && <p>Loading...</p>}
 
       {/* ACTIVE */}
       <h3 style={styles.section}>🟢 Active Trades</h3>
-
-      {active.length === 0 && !loading && (
-        <p>No active trades</p>
-      )}
-
+      {active.length === 0 && <p>No active trades</p>}
       {active.map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
 
+      {/* TODAY CLOSED */}
+      <h3 style={styles.section}>🟡 Today Closed</h3>
+      {todayTrades.length === 0 && <p>No trades today</p>}
+      {todayTrades.map((t) => (
+        <TradeCard key={t.id} t={t} />
+      ))}
+
       {/* HISTORY */}
-      <h3 style={styles.section}>📜 Trade History</h3>
-
-      {sortedHistory.length === 0 && !loading && (
-        <p>No history</p>
-      )}
-
-      {sortedHistory.slice(0, 20).map((t) => (
+      <h3 style={styles.section}>📜 History</h3>
+      {oldHistory.length === 0 && <p>No history</p>}
+      {oldHistory.slice(0, 20).map((t) => (
         <TradeCard key={t.id} t={t} />
       ))}
     </div>
@@ -139,25 +144,17 @@ const styles = {
     minHeight: "100vh",
     padding: "15px",
     color: "white",
-    fontFamily: "sans-serif",
   },
   title: { marginBottom: "15px" },
-  section: { marginTop: "20px", marginBottom: "10px" },
-  stats: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  section: { marginTop: "20px" },
+  stats: { display: "flex", gap: "10px" },
   statBox: {
     background: "#111827",
     padding: "10px",
     borderRadius: "10px",
-    flex: "1",
+    flex: 1,
     textAlign: "center",
   },
-  statValue: { fontSize: "16px", fontWeight: "bold" },
+  statValue: { fontWeight: "bold" },
   statLabel: { fontSize: "12px", color: "#9ca3af" },
-  error: {
-    background: "#7f1d1d",
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "10px",
-    fontSize: "12px",
-  },
 };

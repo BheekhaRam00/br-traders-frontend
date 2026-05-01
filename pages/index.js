@@ -17,27 +17,35 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   const historyLoaded = useRef(false);
+  const isFetching = useRef(false); // 🔥 prevent overlap
 
   // ================================
-  // 🔥 SMART FETCH
+  // 🔥 SMART FETCH (SAFE + STABLE)
   // ================================
   const loadData = async () => {
-    try {
-      // ✅ ACTIVE → frequent
-      const a = await getActiveTrades();
-      setActive(a || []);
+    if (isFetching.current) return; // 🔥 prevent duplicate calls
+    isFetching.current = true;
 
-      // ✅ HISTORY → only once
-      if (!historyLoaded.current) {
+    try {
+      // ✅ ACTIVE → always refresh
+      const a = await getActiveTrades();
+      setActive(Array.isArray(a) ? a : []);
+
+      // ✅ HISTORY → load once (unless empty)
+      if (!historyLoaded.current || history.length === 0) {
         const h = await getHistory();
-        setHistory(h || []);
-        historyLoaded.current = true;
+
+        if (Array.isArray(h)) {
+          setHistory(h);
+          historyLoaded.current = true;
+        }
       }
 
-      setLoading(false);
     } catch (err) {
       console.log("❌ load error:", err.message);
+    } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   };
 
@@ -48,11 +56,10 @@ export default function Home() {
     loadData();
 
     const interval = setInterval(() => {
-      // 🔥 tab active check (extra safe)
       if (document.visibilityState === "visible") {
         loadData();
       }
-    }, 15000); // 🔥 15 sec (SAFE)
+    }, 15000); // 🔥 15 sec safe
 
     return () => clearInterval(interval);
   }, []);
@@ -66,15 +73,18 @@ export default function Home() {
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
-  // 📅 TODAY
+  // 📅 TODAY FILTER (SAFE)
   // ================================
   const today = new Date().toDateString();
 
-  const todayTrades = history.filter(
-    (t) =>
-      t.exitTime &&
-      new Date(t.exitTime).toDateString() === today
-  );
+  const todayTrades = history.filter((t) => {
+    if (!t.exitTime) return false;
+    try {
+      return new Date(t.exitTime).toDateString() === today;
+    } catch {
+      return false;
+    }
+  });
 
   // ================================
   // UI

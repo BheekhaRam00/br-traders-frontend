@@ -1,5 +1,5 @@
 // ==============================================
-// 🚀 DASHBOARD (STEP 2: INTELLIGENCE PANEL)
+// 🚀 DASHBOARD (STEP 2: INTELLIGENCE PANEL SAFE)
 // ==============================================
 
 import { useEffect, useState, useRef } from "react";
@@ -15,8 +15,10 @@ export default function Home() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const prevHistoryRef = useRef([]);
+  const historyLoadedRef = useRef(false); // ✅ NEW
 
   // ================================
   // 🔊 SOUND
@@ -37,12 +39,20 @@ export default function Home() {
   // ================================
   const loadData = async () => {
     try {
-      const [a, h] = await Promise.all([
-        getActiveTrades(),
-        getHistory(),
-      ]);
+      setError("");
 
-      h.forEach((t) => {
+      // 🔥 ACTIVE ALWAYS
+      const a = await getActiveTrades();
+
+      // 🔥 HISTORY ONLY ONCE
+      let h = history;
+      if (!historyLoadedRef.current) {
+        h = await getHistory();
+        historyLoadedRef.current = true;
+      }
+
+      // 🔊 SOUND DETECT
+      (h || []).forEach((t) => {
         const old = prevHistoryRef.current.find((p) => p.id === t.id);
         if (!old && t.exitType) playSound(t.exitType);
       });
@@ -50,9 +60,18 @@ export default function Home() {
       prevHistoryRef.current = h || [];
 
       setActive(a || []);
-      setHistory(h || []);
+      if (h) setHistory(h);
+
     } catch (err) {
       console.log(err);
+
+      // ❌ QUOTA ERROR HANDLE
+      if (err?.message?.includes("Quota")) {
+        setError("⚠️ Server Busy (Quota Limit). Try later.");
+      } else {
+        setError("❌ Data load failed");
+      }
+
     } finally {
       setLoading(false);
     }
@@ -60,7 +79,10 @@ export default function Home() {
 
   useEffect(() => {
     loadData();
-    const i = setInterval(loadData, 3000);
+
+    // ⏱ FIXED (8000ms)
+    const i = setInterval(loadData, 8000);
+
     return () => clearInterval(i);
   }, []);
 
@@ -97,8 +119,6 @@ export default function Home() {
   // ================================
   // 🔥 INTELLIGENCE
   // ================================
-
-  // strategy stats
   const strategyStats = {};
   sortedHistory.forEach((t) => {
     const key = t.strategy || "default";
@@ -112,27 +132,22 @@ export default function Home() {
     strategyStats[key].pnl += calcPnL(t);
   });
 
-  // streak
   let winStreak = 0;
   let lossStreak = 0;
 
   for (let t of sortedHistory) {
-    if (t.exitType === "TP") {
-      winStreak++;
-    } else break;
+    if (t.exitType === "TP") winStreak++;
+    else break;
   }
 
   for (let t of sortedHistory) {
-    if (t.exitType === "SL") {
-      lossStreak++;
-    } else break;
+    if (t.exitType === "SL") lossStreak++;
+    else break;
   }
 
-  // risk
   const callCount = active.filter((t) => t.dir === "CALL").length;
   const putCount = active.filter((t) => t.dir === "PUT").length;
 
-  // active intel
   const avgProb =
     active.reduce((s, t) => s + (t.probability || 0), 0) /
     (active.length || 1);
@@ -152,6 +167,9 @@ export default function Home() {
         🚀 BR Traders
       </div>
 
+      {/* ERROR */}
+      {error && <div style={styles.error}>{error}</div>}
+
       {/* STATS */}
       <div className="stats">
         <Stat label="Trades" value={total} />
@@ -159,14 +177,12 @@ export default function Home() {
         <Stat label="PnL" value={pnl.toFixed(2)} />
       </div>
 
-      {/* ============================= */}
-      {/* 🔥 INTELLIGENCE PANEL */}
-      {/* ============================= */}
+      {/* INTELLIGENCE */}
       <div style={styles.intelCard}>
         <h3 style={styles.center}>📊 Intelligence</h3>
 
         <div style={styles.row}>
-          🔥 Win Streak: {winStreak} | ❌ Loss: {lossStreak}
+          🔥 Win: {winStreak} | ❌ Loss: {lossStreak}
         </div>
 
         <div style={styles.row}>
@@ -175,17 +191,6 @@ export default function Home() {
 
         <div style={styles.row}>
           Avg Prob: {avgProb.toFixed(1)}% | RR: {avgRR.toFixed(2)}
-        </div>
-
-        {/* Strategy */}
-        <div style={{ marginTop: "8px" }}>
-          {Object.entries(strategyStats).map(([k, v]) => (
-            <div key={k} style={styles.small}>
-              {k} → {v.trades} |{" "}
-              {((v.wins / v.trades) * 100 || 0).toFixed(1)}% | ₹
-              {v.pnl.toFixed(0)}
-            </div>
-          ))}
         </div>
       </div>
 
@@ -227,80 +232,3 @@ export default function Home() {
     </div>
   );
 }
-
-// ================================
-function Section({ title, children }) {
-  return (
-    <div style={styles.sectionCard}>
-      <h3 style={styles.sectionTitle}>{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="stat-box">
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
-    </div>
-  );
-}
-
-function Empty({ text }) {
-  return <div style={styles.empty}>{text}</div>;
-}
-
-// ================================
-const styles = {
-  header: {
-    textAlign: "center",
-    fontSize: "24px",
-    fontWeight: "700",
-    marginBottom: "15px",
-    background: "linear-gradient(90deg,#00ff9f,#38bdf8)",
-    WebkitBackgroundClip: "text",
-    color: "transparent",
-  },
-
-  intelCard: {
-    marginTop: "15px",
-    padding: "12px",
-    borderRadius: "12px",
-    background: "#111827",
-  },
-
-  center: {
-    textAlign: "center",
-    marginBottom: "6px",
-  },
-
-  row: {
-    fontSize: "12px",
-    marginBottom: "4px",
-  },
-
-  small: {
-    fontSize: "11px",
-    color: "#9ca3af",
-  },
-
-  sectionCard: {
-    marginTop: "18px",
-    padding: "12px",
-    borderRadius: "12px",
-    background: "#0f172a",
-  },
-
-  sectionTitle: {
-    textAlign: "center",
-    marginBottom: "10px",
-    color: "#9ca3af",
-  },
-
-  empty: {
-    textAlign: "center",
-    fontSize: "12px",
-    color: "#6b7280",
-  },
-};

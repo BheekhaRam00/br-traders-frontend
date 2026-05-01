@@ -1,21 +1,11 @@
 // ==============================================
-// 🚀 DASHBOARD (REALTIME + NO QUOTA ISSUE)
+// 🚀 DASHBOARD (FINAL STABLE + NO QUOTA BURN)
 // ==============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
+import { getActiveTrades, getHistory } from "../lib/api";
 import { calcPnL } from "../lib/utils";
-
-// 🔥 FIRESTORE
-import {
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-
-import { db } from "../lib/firebase";
 
 const TradeCard = dynamic(() => import("../components/TradeCard"), {
   ssr: false,
@@ -26,47 +16,45 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const historyLoaded = useRef(false);
+
   // ================================
-  // 🔥 REALTIME LISTENER
+  // 🔥 SMART FETCH
   // ================================
-  useEffect(() => {
+  const loadData = async () => {
     try {
-      // ✅ ACTIVE TRADES
-      const unsubActive = onSnapshot(
-        collection(db, "activeTrades"),
-        (snap) => {
-          const data = snap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setActive(data);
-        }
-      );
+      // ✅ ACTIVE → frequent
+      const a = await getActiveTrades();
+      setActive(a || []);
 
-      // ✅ HISTORY (LIMITED)
-      const q = query(
-        collection(db, "trades"),
-        orderBy("createdAt", "desc"),
-        limit(50)
-      );
+      // ✅ HISTORY → only once
+      if (!historyLoaded.current) {
+        const h = await getHistory();
+        setHistory(h || []);
+        historyLoaded.current = true;
+      }
 
-      const unsubHistory = onSnapshot(q, (snap) => {
-        const data = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setHistory(data);
-        setLoading(false);
-      });
-
-      return () => {
-        unsubActive();
-        unsubHistory();
-      };
+      setLoading(false);
     } catch (err) {
-      console.log("❌ realtime error:", err);
+      console.log("❌ load error:", err.message);
       setLoading(false);
     }
+  };
+
+  // ================================
+  // 🔁 CONTROLLED REFRESH
+  // ================================
+  useEffect(() => {
+    loadData();
+
+    const interval = setInterval(() => {
+      // 🔥 tab active check (extra safe)
+      if (document.visibilityState === "visible") {
+        loadData();
+      }
+    }, 15000); // 🔥 15 sec (SAFE)
+
+    return () => clearInterval(interval);
   }, []);
 
   // ================================
@@ -78,7 +66,7 @@ export default function Home() {
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
-  // TODAY SPLIT
+  // 📅 TODAY
   // ================================
   const today = new Date().toDateString();
 

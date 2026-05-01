@@ -17,13 +17,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   const historyLoaded = useRef(false);
-  const isFetching = useRef(false); // 🔥 prevent overlap
+  const isFetching = useRef(false);
 
   // ================================
-  // 🔥 SMART FETCH (SAFE + STABLE)
+  // 🔥 SMART FETCH (FIXED)
   // ================================
   const loadData = async () => {
-    if (isFetching.current) return; // 🔥 prevent duplicate calls
+    if (isFetching.current) return;
     isFetching.current = true;
 
     try {
@@ -31,13 +31,16 @@ export default function Home() {
       const a = await getActiveTrades();
       setActive(Array.isArray(a) ? a : []);
 
-      // ✅ HISTORY → load once (unless empty)
-      if (!historyLoaded.current || history.length === 0) {
+      // 🔥 HISTORY FIX (MAIN CHANGE)
+      if (!historyLoaded.current) {
         const h = await getHistory();
 
-        if (Array.isArray(h)) {
+        if (Array.isArray(h) && h.length > 0) {
           setHistory(h);
           historyLoaded.current = true;
+          console.log("✅ History loaded:", h.length);
+        } else {
+          console.log("⚠️ History empty, retrying...");
         }
       }
 
@@ -59,7 +62,7 @@ export default function Home() {
       if (document.visibilityState === "visible") {
         loadData();
       }
-    }, 15000); // 🔥 15 sec safe
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);
@@ -73,7 +76,7 @@ export default function Home() {
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
-  // 📅 TODAY FILTER (SAFE)
+  // 📅 TODAY FILTER
   // ================================
   const today = new Date().toDateString();
 

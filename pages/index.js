@@ -1,10 +1,10 @@
 // ==============================================
-// 🚀 DASHBOARD (FINAL STABLE + NO QUOTA BURN)
+// 🚀 DASHBOARD (FINAL STABLE + BACKTEST + INTELLIGENCE)
 // ==============================================
 
 import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
-import { getActiveTrades, getHistory } from "../lib/api";
+import { getActiveTrades, getHistory, getBacktest } from "../lib/api";
 import { calcPnL } from "../lib/utils";
 
 const TradeCard = dynamic(() => import("../components/TradeCard"), {
@@ -16,31 +16,33 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [backtest, setBacktest] = useState(null);
+  const [btStrategy, setBtStrategy] = useState("v2");
+  const [btDays, setBtDays] = useState(30);
+  const [btLoading, setBtLoading] = useState(false);
+
   const historyLoaded = useRef(false);
   const isFetching = useRef(false);
 
   // ================================
-  // 🔥 SMART FETCH (FIXED)
+  // 🔥 DATA LOAD (FIXED)
   // ================================
   const loadData = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
 
     try {
-      // ✅ ACTIVE → always refresh
       const a = await getActiveTrades();
       setActive(Array.isArray(a) ? a : []);
 
-      // 🔥 HISTORY FIX (MAIN CHANGE)
-      if (!historyLoaded.current) {
-        const h = await getHistory();
+      // ✅ FIXED HISTORY LOAD
+      const h = await getHistory();
 
-        if (Array.isArray(h) && h.length > 0) {
-          setHistory(h);
+      if (Array.isArray(h)) {
+        setHistory(h);
+
+        if (h.length > 0) {
           historyLoaded.current = true;
-          console.log("✅ History loaded:", h.length);
-        } else {
-          console.log("⚠️ History empty, retrying...");
         }
       }
 
@@ -53,7 +55,7 @@ export default function Home() {
   };
 
   // ================================
-  // 🔁 CONTROLLED REFRESH
+  // 🔁 REFRESH
   // ================================
   useEffect(() => {
     loadData();
@@ -76,7 +78,7 @@ export default function Home() {
   const winrate = total ? ((wins / total) * 100).toFixed(1) : 0;
 
   // ================================
-  // 📅 TODAY FILTER
+  // 📅 TODAY
   // ================================
   const today = new Date().toDateString();
 
@@ -90,6 +92,21 @@ export default function Home() {
   });
 
   // ================================
+  // 🚀 BACKTEST RUN
+  // ================================
+  const runBacktest = async () => {
+    try {
+      setBtLoading(true);
+      const res = await getBacktest(btDays, btStrategy);
+      setBacktest(res);
+    } catch (e) {
+      console.log("❌ Backtest error:", e.message);
+    } finally {
+      setBtLoading(false);
+    }
+  };
+
+  // ================================
   // UI
   // ================================
   return (
@@ -100,7 +117,7 @@ export default function Home() {
         🚀 BR Traders
       </div>
 
-      {/* STATS */}
+      {/* INTELLIGENCE DASHBOARD */}
       <div className="stats">
         <Stat label="Trades" value={total} />
         <Stat label="Win %" value={winrate} />
@@ -108,6 +125,34 @@ export default function Home() {
       </div>
 
       {loading && <p style={{ textAlign: "center" }}>Loading...</p>}
+
+      {/* BACKTEST SECTION */}
+      <Section title="🧪 Strategy Backtest">
+        <div style={styles.btControls}>
+          <select value={btStrategy} onChange={(e) => setBtStrategy(e.target.value)}>
+            <option value="v1">Start 1</option>
+            <option value="v2">Start 2</option>
+          </select>
+
+          <select value={btDays} onChange={(e) => setBtDays(Number(e.target.value))}>
+            {[...Array(30)].map((_, i) => (
+              <option key={i} value={i + 1}>{i + 1} Days</option>
+            ))}
+          </select>
+
+          <button onClick={runBacktest} disabled={btLoading}>
+            {btLoading ? "Running..." : "Run"}
+          </button>
+        </div>
+
+        {backtest && (
+          <div style={styles.btCard}>
+            <Stat label="Trades" value={backtest.total} />
+            <Stat label="Win %" value={backtest.winrate} />
+            <Stat label="PnL" value={backtest.pnl} />
+          </div>
+        )}
+      </Section>
 
       {/* ACTIVE */}
       <Section title="🟢 Active Trades">
@@ -198,5 +243,20 @@ const styles = {
     textAlign: "center",
     fontSize: "12px",
     color: "#6b7280",
+  },
+
+  btControls: {
+    display: "flex",
+    gap: "10px",
+    justifyContent: "center",
+    marginBottom: "10px",
+  },
+
+  btCard: {
+    display: "flex",
+    justifyContent: "space-around",
+    background: "#020617",
+    padding: "10px",
+    borderRadius: "10px",
   },
 };
